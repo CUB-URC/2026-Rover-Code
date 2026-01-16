@@ -1,0 +1,11 @@
+{
+  "name": "CU Rover 2026",
+  "dockerComposeFile": "../docker/docker-compose.yml",
+  "service": "dev",
+  "workspaceFolder": "/workspace",
+  "extensions": [
+    "ms-python.python",
+    "ms-iot.vscode-ros"
+  ]
+}
+
