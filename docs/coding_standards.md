@@ -1,6 +1,6 @@
 Packages are snake_case\
 Nodes are snake_case\
-Classes are CamelCase\
+Classes are CamelCase
 
 Paramaters:\
 Do Not hardcode values into the indiviudal .cpp files, instead use .yaml or .json files in the config/ folder

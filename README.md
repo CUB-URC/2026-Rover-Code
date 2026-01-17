@@ -25,5 +25,6 @@ Drive Motor Controllers: 2x BILDA 2x40A Motor Controller
 
 **Compilation and Build** 
 
-cd ros2_ws
+cd ros2_ws\
 colcon build --symlink-install
+
