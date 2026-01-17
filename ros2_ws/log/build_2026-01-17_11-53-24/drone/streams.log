@@ -1,0 +1,60 @@
+[0.027s] Invoking command in '/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/drone': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake /home/ender/CUB-URC/2026-Rover-Code/ros2_ws/src_new/drone -DAMENT_CMAKE_SYMLINK_INSTALL=1 -DCMAKE_INSTALL_PREFIX=/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/drone
+[0.197s] -- The C compiler identification is GNU 11.4.0
+[0.458s] -- The CXX compiler identification is GNU 11.4.0
+[0.578s] -- Detecting C compiler ABI info
+[0.706s] -- Detecting C compiler ABI info - done
+[0.711s] -- Check for working C compiler: /usr/bin/cc - skipped
+[0.711s] -- Detecting C compile features
+[0.712s] -- Detecting C compile features - done
+[0.719s] -- Detecting CXX compiler ABI info
+[0.823s] -- Detecting CXX compiler ABI info - done
+[0.829s] -- Check for working CXX compiler: /usr/bin/c++ - skipped
+[0.829s] -- Detecting CXX compile features
+[0.830s] -- Detecting CXX compile features - done
+[0.903s] -- Found ament_cmake: 1.3.12 (/opt/ros/humble/share/ament_cmake/cmake)
+[1.074s] -- Found Python3: /usr/bin/python3 (found version "3.10.12") found components: Interpreter 
+[1.226s] -- Override CMake install command with custom implementation using symlinks instead of copying resources
+[1.575s] -- Found rclcpp: 16.0.17 (/opt/ros/humble/share/rclcpp/cmake)
+[2.097s] -- Found rosidl_generator_c: 3.1.8 (/opt/ros/humble/share/rosidl_generator_c/cmake)
+[2.142s] -- Found rosidl_adapter: 3.1.8 (/opt/ros/humble/share/rosidl_adapter/cmake)
+[2.239s] -- Found rosidl_generator_cpp: 3.1.8 (/opt/ros/humble/share/rosidl_generator_cpp/cmake)
+[2.279s] -- Using all available rosidl_typesupport_c: rosidl_typesupport_fastrtps_c;rosidl_typesupport_introspection_c
+[2.395s] -- Using all available rosidl_typesupport_cpp: rosidl_typesupport_fastrtps_cpp;rosidl_typesupport_introspection_cpp
+[2.739s] -- Found rmw_implementation_cmake: 6.1.2 (/opt/ros/humble/share/rmw_implementation_cmake/cmake)
+[2.782s] -- Found rmw_fastrtps_cpp: 6.2.9 (/opt/ros/humble/share/rmw_fastrtps_cpp/cmake)
+[3.236s] -- Found OpenSSL: /usr/lib/x86_64-linux-gnu/libcrypto.so (found version "3.0.2")  
+[3.593s] -- Found FastRTPS: /opt/ros/humble/include  
+[4.231s] -- Using RMW implementation 'rmw_fastrtps_cpp' as default
+[4.237s] -- Looking for pthread.h
+[4.332s] -- Looking for pthread.h - found
+[4.333s] -- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+[4.442s] -- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+[4.443s] -- Found Threads: TRUE  
+[4.487s] -- Found ament_lint_auto: 0.12.14 (/opt/ros/humble/share/ament_lint_auto/cmake)
+[4.568s] -- Added test 'lint_cmake' to check CMake code style
+[4.591s] -- Added test 'xmllint' to check XML markup files
+[4.594s] -- Configuring done
+[4.600s] -- Generating done
+[4.603s] -- Build files have been written to: /home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/drone
+[4.619s] Invoked command in '/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/drone' returned '0': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake /home/ender/CUB-URC/2026-Rover-Code/ros2_ws/src_new/drone -DAMENT_CMAKE_SYMLINK_INSTALL=1 -DCMAKE_INSTALL_PREFIX=/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/drone
+[4.620s] Invoking command in '/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/drone': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --build /home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/drone -- -j12 -l12
+[4.651s] Invoked command in '/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/drone' returned '0': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --build /home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/drone -- -j12 -l12
+[4.661s] Invoking command in '/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/drone': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --install /home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/drone
+[4.667s] -- Install configuration: ""
+[4.667s] -- Execute custom install script
+[4.669s] -- Symlinking: /home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/drone/share/ament_index/resource_index/package_run_dependencies/drone
+[4.677s] -- Symlinking: /home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/drone/share/ament_index/resource_index/parent_prefix_path/drone
+[4.687s] -- Symlinking: /home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/drone/share/drone/environment/ament_prefix_path.sh
+[4.695s] -- Symlinking: /home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/drone/share/drone/environment/ament_prefix_path.dsv
+[4.703s] -- Symlinking: /home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/drone/share/drone/environment/path.sh
+[4.711s] -- Symlinking: /home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/drone/share/drone/environment/path.dsv
+[4.719s] -- Symlinking: /home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/drone/share/drone/local_setup.bash
+[4.727s] -- Symlinking: /home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/drone/share/drone/local_setup.sh
+[4.735s] -- Symlinking: /home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/drone/share/drone/local_setup.zsh
+[4.742s] -- Symlinking: /home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/drone/share/drone/local_setup.dsv
+[4.750s] -- Symlinking: /home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/drone/share/drone/package.dsv
+[4.759s] -- Symlinking: /home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/drone/share/ament_index/resource_index/packages/drone
+[4.767s] -- Symlinking: /home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/drone/share/drone/cmake/droneConfig.cmake
+[4.775s] -- Symlinking: /home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/drone/share/drone/cmake/droneConfig-version.cmake
+[4.783s] -- Symlinking: /home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/drone/share/drone/package.xml
+[4.796s] Invoked command in '/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/drone' returned '0': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --install /home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/drone

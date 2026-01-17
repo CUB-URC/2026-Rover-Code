@@ -23,3 +23,7 @@ Main Camera Framework: ZED SDK 5.1
 Drive Motors: 6x 5304 Series Saturn Planetary Gear Motor\
 Drive Motor Controllers: 2x BILDA 2x40A Motor Controller
 
+**Compilation and Build** 
+
+cd ros2_ws
+colcon build --symlink-install

@@ -1,0 +1,15 @@
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/science/share/ament_index/resource_index/package_run_dependencies/science
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/science/share/ament_index/resource_index/parent_prefix_path/science
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/science/share/science/environment/ament_prefix_path.sh
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/science/share/science/environment/ament_prefix_path.dsv
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/science/share/science/environment/path.sh
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/science/share/science/environment/path.dsv
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/science/share/science/local_setup.bash
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/science/share/science/local_setup.sh
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/science/share/science/local_setup.zsh
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/science/share/science/local_setup.dsv
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/science/share/science/package.dsv
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/science/share/ament_index/resource_index/packages/science
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/science/share/science/cmake/scienceConfig.cmake
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/science/share/science/cmake/scienceConfig-version.cmake
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/science/share/science/package.xml

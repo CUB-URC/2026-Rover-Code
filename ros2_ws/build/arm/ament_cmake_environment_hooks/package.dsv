@@ -1,0 +1,4 @@
+source;share/arm/local_setup.bash
+source;share/arm/local_setup.dsv
+source;share/arm/local_setup.sh
+source;share/arm/local_setup.zsh

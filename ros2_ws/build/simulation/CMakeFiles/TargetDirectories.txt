@@ -1,0 +1,9 @@
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/simulation/CMakeFiles/uninstall.dir
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/simulation/CMakeFiles/simulation_uninstall.dir
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/simulation/CMakeFiles/test.dir
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/simulation/CMakeFiles/edit_cache.dir
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/simulation/CMakeFiles/rebuild_cache.dir
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/simulation/CMakeFiles/list_install_components.dir
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/simulation/CMakeFiles/install.dir
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/simulation/CMakeFiles/install/local.dir
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/simulation/CMakeFiles/install/strip.dir

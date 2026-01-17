@@ -1,0 +1,4 @@
+source;share/drone_bringup/local_setup.bash
+source;share/drone_bringup/local_setup.dsv
+source;share/drone_bringup/local_setup.sh
+source;share/drone_bringup/local_setup.zsh

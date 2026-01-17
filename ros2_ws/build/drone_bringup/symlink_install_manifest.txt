@@ -1,0 +1,15 @@
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/drone_bringup/share/ament_index/resource_index/package_run_dependencies/drone_bringup
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/drone_bringup/share/ament_index/resource_index/parent_prefix_path/drone_bringup
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/drone_bringup/share/drone_bringup/environment/ament_prefix_path.sh
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/drone_bringup/share/drone_bringup/environment/ament_prefix_path.dsv
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/drone_bringup/share/drone_bringup/environment/path.sh
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/drone_bringup/share/drone_bringup/environment/path.dsv
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/drone_bringup/share/drone_bringup/local_setup.bash
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/drone_bringup/share/drone_bringup/local_setup.sh
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/drone_bringup/share/drone_bringup/local_setup.zsh
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/drone_bringup/share/drone_bringup/local_setup.dsv
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/drone_bringup/share/drone_bringup/package.dsv
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/drone_bringup/share/ament_index/resource_index/packages/drone_bringup
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/drone_bringup/share/drone_bringup/cmake/drone_bringupConfig.cmake
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/drone_bringup/share/drone_bringup/cmake/drone_bringupConfig-version.cmake
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/drone_bringup/share/drone_bringup/package.xml

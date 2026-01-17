@@ -1,0 +1,60 @@
+[0.027s] Invoking command in '/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/drive': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake /home/ender/CUB-URC/2026-Rover-Code/ros2_ws/src_new/drive -DAMENT_CMAKE_SYMLINK_INSTALL=1 -DCMAKE_INSTALL_PREFIX=/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/drive
+[0.200s] -- The C compiler identification is GNU 11.4.0
+[0.459s] -- The CXX compiler identification is GNU 11.4.0
+[0.571s] -- Detecting C compiler ABI info
+[0.710s] -- Detecting C compiler ABI info - done
+[0.716s] -- Check for working C compiler: /usr/bin/cc - skipped
+[0.716s] -- Detecting C compile features
+[0.716s] -- Detecting C compile features - done
+[0.721s] -- Detecting CXX compiler ABI info
+[0.826s] -- Detecting CXX compiler ABI info - done
+[0.833s] -- Check for working CXX compiler: /usr/bin/c++ - skipped
+[0.833s] -- Detecting CXX compile features
+[0.834s] -- Detecting CXX compile features - done
+[0.904s] -- Found ament_cmake: 1.3.12 (/opt/ros/humble/share/ament_cmake/cmake)
+[1.078s] -- Found Python3: /usr/bin/python3 (found version "3.10.12") found components: Interpreter 
+[1.227s] -- Override CMake install command with custom implementation using symlinks instead of copying resources
+[1.577s] -- Found rclcpp: 16.0.17 (/opt/ros/humble/share/rclcpp/cmake)
+[2.100s] -- Found rosidl_generator_c: 3.1.8 (/opt/ros/humble/share/rosidl_generator_c/cmake)
+[2.145s] -- Found rosidl_adapter: 3.1.8 (/opt/ros/humble/share/rosidl_adapter/cmake)
+[2.242s] -- Found rosidl_generator_cpp: 3.1.8 (/opt/ros/humble/share/rosidl_generator_cpp/cmake)
+[2.281s] -- Using all available rosidl_typesupport_c: rosidl_typesupport_fastrtps_c;rosidl_typesupport_introspection_c
+[2.397s] -- Using all available rosidl_typesupport_cpp: rosidl_typesupport_fastrtps_cpp;rosidl_typesupport_introspection_cpp
+[2.742s] -- Found rmw_implementation_cmake: 6.1.2 (/opt/ros/humble/share/rmw_implementation_cmake/cmake)
+[2.784s] -- Found rmw_fastrtps_cpp: 6.2.9 (/opt/ros/humble/share/rmw_fastrtps_cpp/cmake)
+[3.238s] -- Found OpenSSL: /usr/lib/x86_64-linux-gnu/libcrypto.so (found version "3.0.2")  
+[3.595s] -- Found FastRTPS: /opt/ros/humble/include  
+[4.268s] -- Using RMW implementation 'rmw_fastrtps_cpp' as default
+[4.275s] -- Looking for pthread.h
+[4.374s] -- Looking for pthread.h - found
+[4.375s] -- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+[4.490s] -- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+[4.491s] -- Found Threads: TRUE  
+[4.536s] -- Found ament_lint_auto: 0.12.14 (/opt/ros/humble/share/ament_lint_auto/cmake)
+[4.599s] -- Added test 'lint_cmake' to check CMake code style
+[4.601s] -- Added test 'xmllint' to check XML markup files
+[4.603s] -- Configuring done
+[4.611s] -- Generating done
+[4.614s] -- Build files have been written to: /home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/drive
+[4.632s] Invoked command in '/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/drive' returned '0': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake /home/ender/CUB-URC/2026-Rover-Code/ros2_ws/src_new/drive -DAMENT_CMAKE_SYMLINK_INSTALL=1 -DCMAKE_INSTALL_PREFIX=/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/drive
+[4.634s] Invoking command in '/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/drive': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --build /home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/drive -- -j12 -l12
+[4.676s] Invoked command in '/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/drive' returned '0': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --build /home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/drive -- -j12 -l12
+[4.678s] Invoking command in '/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/drive': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --install /home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/drive
+[4.685s] -- Install configuration: ""
+[4.685s] -- Execute custom install script
+[4.686s] -- Symlinking: /home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/drive/share/ament_index/resource_index/package_run_dependencies/drive
+[4.694s] -- Symlinking: /home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/drive/share/ament_index/resource_index/parent_prefix_path/drive
+[4.702s] -- Symlinking: /home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/drive/share/drive/environment/ament_prefix_path.sh
+[4.710s] -- Symlinking: /home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/drive/share/drive/environment/ament_prefix_path.dsv
+[4.718s] -- Symlinking: /home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/drive/share/drive/environment/path.sh
+[4.726s] -- Symlinking: /home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/drive/share/drive/environment/path.dsv
+[4.734s] -- Symlinking: /home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/drive/share/drive/local_setup.bash
+[4.741s] -- Symlinking: /home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/drive/share/drive/local_setup.sh
+[4.749s] -- Symlinking: /home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/drive/share/drive/local_setup.zsh
+[4.757s] -- Symlinking: /home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/drive/share/drive/local_setup.dsv
+[4.764s] -- Symlinking: /home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/drive/share/drive/package.dsv
+[4.773s] -- Symlinking: /home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/drive/share/ament_index/resource_index/packages/drive
+[4.780s] -- Symlinking: /home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/drive/share/drive/cmake/driveConfig.cmake
+[4.787s] -- Symlinking: /home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/drive/share/drive/cmake/driveConfig-version.cmake
+[4.798s] -- Symlinking: /home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/drive/share/drive/package.xml
+[4.850s] Invoked command in '/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/drive' returned '0': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --install /home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/drive

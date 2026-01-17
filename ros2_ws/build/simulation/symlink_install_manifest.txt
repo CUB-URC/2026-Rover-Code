@@ -1,0 +1,15 @@
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/simulation/share/ament_index/resource_index/package_run_dependencies/simulation
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/simulation/share/ament_index/resource_index/parent_prefix_path/simulation
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/simulation/share/simulation/environment/ament_prefix_path.sh
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/simulation/share/simulation/environment/ament_prefix_path.dsv
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/simulation/share/simulation/environment/path.sh
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/simulation/share/simulation/environment/path.dsv
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/simulation/share/simulation/local_setup.bash
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/simulation/share/simulation/local_setup.sh
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/simulation/share/simulation/local_setup.zsh
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/simulation/share/simulation/local_setup.dsv
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/simulation/share/simulation/package.dsv
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/simulation/share/ament_index/resource_index/packages/simulation
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/simulation/share/simulation/cmake/simulationConfig.cmake
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/simulation/share/simulation/cmake/simulationConfig-version.cmake
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/install/simulation/share/simulation/package.xml

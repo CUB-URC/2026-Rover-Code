@@ -1,0 +1,9 @@
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/autonomy/CMakeFiles/uninstall.dir
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/autonomy/CMakeFiles/autonomy_uninstall.dir
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/autonomy/CMakeFiles/test.dir
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/autonomy/CMakeFiles/edit_cache.dir
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/autonomy/CMakeFiles/rebuild_cache.dir
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/autonomy/CMakeFiles/list_install_components.dir
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/autonomy/CMakeFiles/install.dir
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/autonomy/CMakeFiles/install/local.dir
+/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/autonomy/CMakeFiles/install/strip.dir

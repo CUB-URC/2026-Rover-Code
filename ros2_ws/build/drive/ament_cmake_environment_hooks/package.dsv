@@ -1,0 +1,4 @@
+source;share/drive/local_setup.bash
+source;share/drive/local_setup.dsv
+source;share/drive/local_setup.sh
+source;share/drive/local_setup.zsh
