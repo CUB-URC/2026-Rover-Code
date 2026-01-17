@@ -1,9 +1,0 @@
-/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/drone/CMakeFiles/uninstall.dir
-/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/drone/CMakeFiles/drone_uninstall.dir
-/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/drone/CMakeFiles/test.dir
-/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/drone/CMakeFiles/edit_cache.dir
-/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/drone/CMakeFiles/rebuild_cache.dir
-/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/drone/CMakeFiles/list_install_components.dir
-/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/drone/CMakeFiles/install.dir
-/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/drone/CMakeFiles/install/local.dir
-/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/drone/CMakeFiles/install/strip.dir

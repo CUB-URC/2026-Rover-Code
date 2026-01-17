@@ -1,4 +1,0 @@
-source;share/comms/local_setup.bash
-source;share/comms/local_setup.dsv
-source;share/comms/local_setup.sh
-source;share/comms/local_setup.zsh
