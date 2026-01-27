@@ -8,6 +8,27 @@ endif()
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+
+# add executables
+add_executable(arm_controller_node src/arm_controller_node.cpp)
+ament_target_dependencies(arm_controller_node 
+  rclcpp 
+  std_msgs 
+  geometry_msgs
+)
+
+# install targets
+install(TARGETS arm_controller_node
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+# install config files + launch file
+install(DIRECTORY config launch
+  DESTINATION share/${PROJECT_NAME}
+)
+
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
