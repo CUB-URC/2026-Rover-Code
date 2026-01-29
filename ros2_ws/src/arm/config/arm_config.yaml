@@ -1,2 +1,69 @@
 # Arm System Configuration
+# Matches Drive System Architecture
+# 
+# Supports both Jetson Orin Nano Super Dev Kit and Jetson Nano Dev Kit
+#
+# - pins are set to -1 by default. update these with real GPIO numbers
+# - speeds are set to safe, possibly unfavorable, defaults
 
+arm:
+  hardware:
+
+    base:                 # DM542T
+      name: "Base Rotation"
+      step_pin: -1        # update this with real GPIO
+      dir_pin: -1         # update this with real GPIO
+      gear_ratio: 50.0    # dependent on motor label  (this is 50:1)
+      microsteps: 1600    # dependent on DIP switches (pulses/rev)
+      amps: 3.2           # dependent on DIP switches, label
+      reversed: false
+
+    shoulder:             # DM542T
+      name: "Shoulder Lift"
+      step_pin: -1
+      dir_pin: -1
+      gear_ratio: 100.0
+      microsteps: 1600
+      amps: 3.2
+      reversed: false
+
+    elbow:                # DM320T
+      name: "Elbow Flex"
+      step_pin: -1
+      dir_pin: -1
+      gear_ratio: 50.0
+      microsteps: 1600
+      amps: 1.56
+      reversed: false 
+
+  limits:
+    
+    # max speed is steps per second
+    # 1000 steps/sec = ~0.6 revs/sec
+    
+    base:
+      max_speed: 1000.0
+      max_accel: 500.0
+    
+    shoulder:
+      max_speed: 800.0    # slower for heavy lift
+      max_accel: 300.0
+
+    elbow:
+      max_speed: 1000.0
+      max_accel: 500.0
+
+  # Joystick/Command parameters
+  command:
+    input_timeout: 0.5    # stop if no command received for 0.5s
+    deadzone: 0.05        # avoid drift
+    scale_speed: 1.0
+
+  # ROS2 Node configuration
+  ros2:
+    node_name: "arm_controller"
+    loop_rate: 100         # Hz
+    
+    topics:
+      command_input: "/arm/cmd_vel"    # Subscribe to arm velocity commands
+      status_output: "/arm/status"     # Publish joint states
