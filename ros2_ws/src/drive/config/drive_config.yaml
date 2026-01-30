@@ -1,0 +1,96 @@
+# Drive System Configuration
+# Supports both Jetson Orin Nano Super Dev Kit and Jetson Nano Dev Kit
+# 
+# PWM Mapping:
+# Jetson Orin Nano: PWM0 (pin 32, 33), PWM1 (pin 12, 13), PWM2 (pin 35, 38)
+# Jetson Nano: PWM0 (pin 32, 33)
+#
+# Current Configuration: Generic mapping that works on both platforms
+# - Uses PWM chip 0 and 1 with standard channels
+# - Adjust chip/channel values if PWM paths don't exist
+
+drive:
+  # PWM channel configuration
+  # 4 PWM channels controlling 6 motors:
+  # - Left Front/Middle (LF + LM): motor_left_front_middle
+  # - Left Back (LB): motor_left_back
+  # - Right Front/Middle (RF + RM): motor_right_front_middle
+  # - Right Back (RB): motor_right_back
+  #
+  # NOTE: PWM paths may vary between Orin and Nano.
+  # If PWM not working, check actual PWM chips:
+  #   ls /sys/class/pwm/
+  pwm_channels:
+    motor_left_front_middle:
+      chip: 0           # PWM chip number
+      channel: 0        # PWM channel
+      frequency: 50000  # 50 kHz
+      name: "Left Front/Middle Motors (LF + LM)"
+      motor_count: 2
+    
+    motor_left_back:
+      chip: 0
+      channel: 1
+      frequency: 50000
+      name: "Left Back Motor (LB)"
+      motor_count: 1
+    
+    motor_right_front_middle:
+      chip: 1
+      channel: 0
+      frequency: 50000
+      name: "Right Front/Middle Motors (RF + RM)"
+      motor_count: 2
+    
+    motor_right_back:
+      chip: 1
+      channel: 1
+      frequency: 50000
+      name: "Right Back Motor (RB)"
+      motor_count: 1
+  
+  # Motor speed parameters (per channel)
+  motors:
+    left_front_middle:
+      min_duty_cycle: 0.0
+      max_duty_cycle: 1.0
+      default_speed: 0.5   # 50% speed
+    
+    left_back:
+      min_duty_cycle: 0.0
+      max_duty_cycle: 1.0
+      default_speed: 0.5
+    
+    right_front_middle:
+      min_duty_cycle: 0.0
+      max_duty_cycle: 1.0
+      default_speed: 0.5
+    
+    right_back:
+      min_duty_cycle: 0.0
+      max_duty_cycle: 1.0
+      default_speed: 0.5
+  
+  # Joystick/Command parameters
+  command:
+    max_speed: 1.0        # Max speed as percentage (0.0 to 1.0)
+    acceleration: 0.1     # Speed change per update cycle
+    deadzone: 0.05        # Joystick deadzone threshold
+    timeout: 1.0          # Command timeout in seconds
+    
+    # Motor speed distribution when using differential drive
+    # Allows independent control of front/middle vs back motor speeds
+    front_middle_gain: 1.0        # Speed multiplier for front/middle motors
+    back_gain: 1.0                # Speed multiplier for back motors
+
+# ROS2 Node configuration
+ros2:
+  node_name: "drive_controller"
+  publish_frequency: 50   # Hz
+  
+  topics:
+    command_input: "/drive/cmd_vel"    # Subscribe to drive velocity commands
+    motor_status: "/motor_status"  # Publish motor status
+  
+  services:
+    emergency_stop: "/emergency_stop"
