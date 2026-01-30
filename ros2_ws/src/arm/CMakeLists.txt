@@ -10,6 +10,7 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(yaml-cpp REQUIRED)
 
 # add executables
 add_executable(arm_controller_node src/arm_controller_node.cpp)
@@ -18,6 +19,7 @@ ament_target_dependencies(arm_controller_node
   std_msgs 
   geometry_msgs
 )
+target_link_libraries(arm_controller_node yaml-cpp)
 
 # install targets
 install(TARGETS arm_controller_node

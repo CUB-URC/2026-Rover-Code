@@ -4,6 +4,7 @@
 #include <ament_index_cpp/get_package_share_directory.hpp>
 #include <yaml-cpp/yaml.h>
 #include <fstream>
+#include <functional>
 #include <iostream>
 #include <chrono>
 #include <cmath>
@@ -36,6 +37,18 @@ public:
                 rclcpp::shutdown();
                 return;
             }
+
+            // Create command subscriber
+            // Topic: /arm/cmd_vel - Standardized command velocity topic (geometry_msgs/Twist)
+            cmd_subscription_ = this->create_subscription<geometry_msgs::msg::Twist>(
+                "/arm/cmd_vel",
+                10,
+                std::bind(&ArmController::cmd_callback, this, std::placeholders::_1));
+
+            // Create timer for control loop
+            control_timer_ = this->create_wall_timer(
+            std::chrono::milliseconds(10),  // 100 Hz
+            std::bind(&ArmController::control_loop, this));
         }
 
 private:
@@ -65,33 +78,100 @@ private:
 
     double input_timeout_;
     double deadzone_;
+    double scale_speed_;
     rclcpp::Time last_command_time_;
+    geometry_msgs::msg::Twist last_command_;
 
     // Subscriptions
-    rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr subscription_;
+    rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_subscription_;
     rclcpp::TimerBase::SharedPtr control_timer_;
 
     bool load_config()
     {
+        try {
+            // Get package share directory
+            std::string package_share_directory = ament_index_cpp::get_package_share_directory("arm");
+            std::string config_file = package_share_directory + "/config/arm_config.yaml";
+            RCLCPP_INFO(this->get_logger(), "Loading config from: %s", config_file.c_str());
 
+            YAML::Node config = YAML::LoadFile(config_file);
+
+            // Load joints
+            YAML::Node hardware = config["arm"]["hardware"];
+            if (!hardware || !hardware.IsMap()) {
+                throw std::runtime_error("Missing arm.hardware section in config");
+            }
+            YAML::Node limits = config["arm"]["limits"];
+            if (!limits || !limits.IsMap()) {
+                throw std::runtime_error("Missing arm.limits section in config");
+            }
+
+            for (auto it = hardware.begin(); it != hardware.end(); ++it) {
+                const std::string joint_key = it->first.as<std::string>();
+                const YAML::Node joint = it->second;
+                const YAML::Node joint_limits = limits[joint_key];
+                if (!joint_limits || !joint_limits.IsMap()) {
+                    throw std::runtime_error("Missing limits for joint: " + joint_key);
+                }
+
+                JointConfig jc;
+                jc.name = joint["name"].as<std::string>();
+                jc.step_pin = joint["step_pin"].as<int>();
+                jc.dir_pin = joint["dir_pin"].as<int>();
+                jc.gear_ratio = joint["gear_ratio"].as<double>();
+                jc.microsteps = joint["microsteps"].as<int>();
+                jc.amps = joint["amps"].as<double>();
+                jc.reversed = joint["reversed"].as<bool>();
+
+                jc.max_speed = joint_limits["max_speed"].as<double>();
+                jc.max_accel = joint_limits["max_accel"].as<double>();
+                jc.current_speed = 0.0;
+                jc.target_speed = 0.0;
+                jc.enabled = false;
+
+                joints_[joint_key] = jc;
+            }
+
+            // Load command parameters
+            YAML::Node command = config["arm"]["command"];
+            if (!command || !command.IsMap()) {
+                throw std::runtime_error("Missing arm.command section in config");
+            }
+            input_timeout_ = command["input_timeout"].as<double>();
+            deadzone_ = command["deadzone"].as<double>();
+            scale_speed_ = command["scale_speed"].as<double>(1.0);
+
+            RCLCPP_INFO(this->get_logger(), "Configuration loaded successfully");
+            return true;
+        } catch (const std::exception &e) {
+            RCLCPP_ERROR(this->get_logger(), "Config loading error: %s", e.what());
+            return false;
+        }
     }
 
     bool init_gpio(){
-        
+        // TODO
+        return false;
     }
 
     void cleanup_gpio(){
-        
+        // TODO
     }
 
     void cmd_callback(const geometry_msgs::msg::Twist::SharedPtr msg)
     {
-
+        last_command_time_ = this->now();
+        last_command_ = *msg;
+        last_command_.linear.x *= scale_speed_;
+        last_command_.linear.y *= scale_speed_;
+        last_command_.linear.z *= scale_speed_;
+        last_command_.angular.x *= scale_speed_;
+        last_command_.angular.y *= scale_speed_;
+        last_command_.angular.z *= scale_speed_;
     }
 
     void control_loop()
     {
-
     }
 
     void set_motor_speed(JointConfig &joint, double speed)
