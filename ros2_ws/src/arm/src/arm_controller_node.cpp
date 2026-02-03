@@ -73,8 +73,26 @@ private:
         bool enabled;
     };
 
+    // GPIO + PWM sysfs helpers (mirrors drive module style)
+    struct GPIOPin {
+        std::string name;
+        int pin;
+        std::string path; // /sys/class/gpio/gpioN
+    };
+
+    struct StepPwm {
+        std::string name;
+        int chip;
+        int channel;
+        int frequency;     // Hz
+        std::string path;  // /sys/class/pwm/pwmchipX/pwmY
+    };
+
     // Configuration
     std::map<std::string, JointConfig> joints_;
+    std::map<std::string, GPIOPin> dir_pins_;
+    std::map<std::string, GPIOPin> enable_pins_;
+    std::map<std::string, StepPwm> step_pwms_;
 
     double input_timeout_;
     double deadzone_;

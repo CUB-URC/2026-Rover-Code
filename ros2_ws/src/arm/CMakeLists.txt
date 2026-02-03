@@ -10,6 +10,7 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(ament_index_cpp REQUIRED)
 find_package(yaml-cpp REQUIRED)
 
 # add executables
@@ -18,11 +19,31 @@ ament_target_dependencies(arm_controller_node
   rclcpp 
   std_msgs 
   geometry_msgs
+  ament_index_cpp
+  yaml-cpp
 )
 target_link_libraries(arm_controller_node yaml-cpp)
 
+# sim executable (no hardware access)
+add_executable(arm_controller_sim src/arm_controller_sim.cpp)
+ament_target_dependencies(arm_controller_sim
+  rclcpp
+  std_msgs
+  geometry_msgs
+  ament_index_cpp
+  yaml-cpp
+)
+target_link_libraries(arm_controller_sim yaml-cpp)
+
+# test executable
+add_executable(arm_test_node src/arm_test.cpp)
+ament_target_dependencies(arm_test_node
+  rclcpp
+  geometry_msgs
+)
+
 # install targets
-install(TARGETS arm_controller_node
+install(TARGETS arm_controller_node arm_controller_sim arm_test_node
   DESTINATION lib/${PROJECT_NAME}
 )
 
