@@ -33,7 +33,7 @@ public:
         {
             // Load configuration
             if (!load_config()) {
-                RCLCPP_ERROR(this->get_logger(), "Failed to configure joints.");
+                RCLCPP_ERROR(this->get_logger(), "Configuration load failed; shutting down arm controller.");
                 rclcpp::shutdown();
                 return;
             }
@@ -41,9 +41,10 @@ public:
             // Create command subscriber
             // Topic: /arm/cmd_vel - Standardized command velocity topic (geometry_msgs/Twist)
             cmd_subscription_ = this->create_subscription<geometry_msgs::msg::Twist>(
-                "/arm/cmd_vel",
+                command_input_topic_,
                 10,
                 std::bind(&ArmController::cmd_callback, this, std::placeholders::_1));
+            RCLCPP_INFO(this->get_logger(), "Subscribing to command topic: %s", command_input_topic_.c_str());
 
             // Create timer for control loop
             control_timer_ = this->create_wall_timer(
@@ -97,6 +98,7 @@ private:
     double input_timeout_;
     double deadzone_;
     double scale_speed_;
+    std::string command_input_topic_;
     rclcpp::Time last_command_time_;
     geometry_msgs::msg::Twist last_command_;
 
@@ -158,6 +160,24 @@ private:
             input_timeout_ = command["input_timeout"].as<double>();
             deadzone_ = command["deadzone"].as<double>();
             scale_speed_ = command["scale_speed"].as<double>(1.0);
+
+            YAML::Node ros2 = config["arm"]["ros2"];
+            if (!ros2 || !ros2.IsMap()) {
+                throw std::runtime_error("Missing arm.ros2 section in config");
+            }
+            YAML::Node topics = ros2["topics"];
+            if (!topics || !topics.IsMap()) {
+                throw std::runtime_error("Missing arm.ros2.topics section in config");
+            }
+            // Load the command input topic used by this node's /Twist subscriber.
+            if (!topics["command_input"] || !topics["command_input"].IsScalar()) {
+                throw std::runtime_error("Missing arm.ros2.topics.command_input in config");
+            }
+
+            command_input_topic_ = topics["command_input"].as<std::string>();
+            if (command_input_topic_.empty()) {
+                throw std::runtime_error("arm.ros2.topics.command_input must not be empty");
+            }
 
             RCLCPP_INFO(this->get_logger(), "Configuration loaded successfully");
             return true;

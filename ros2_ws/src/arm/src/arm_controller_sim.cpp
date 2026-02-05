@@ -46,18 +46,18 @@ public:
     ArmControllerSim() : Node("arm_controller_sim")
     {
         if (!load_config()) {
-            RCLCPP_ERROR(this->get_logger(), "Failed to load arm configuration");
+            RCLCPP_ERROR(this->get_logger(), "Configuration load failed; shutting down arm simulator.");
             rclcpp::shutdown();
             return;
         }
 
         cmd_subscription_ = this->create_subscription<geometry_msgs::msg::Twist>(
-            "/arm/cmd_vel",
+            command_input_topic_,
             10,
             std::bind(&ArmControllerSim::cmd_callback, this, std::placeholders::_1));
 
         status_publisher_ = this->create_publisher<std_msgs::msg::String>(
-            "/arm/sim_status",
+            status_output_topic_,
             10);
 
         control_timer_ = this->create_wall_timer(
@@ -68,7 +68,8 @@ public:
         last_update_time_ = this->now();
 
         RCLCPP_INFO(this->get_logger(), "Simulated Arm Controller initialized (SIM MODE)");
-        RCLCPP_INFO(this->get_logger(), "Subscribing to /arm/cmd_vel");
+        RCLCPP_INFO(this->get_logger(), "Subscribing to %s", command_input_topic_.c_str());
+        RCLCPP_INFO(this->get_logger(), "Publishing status to %s", status_output_topic_.c_str());
     }
 
 private:
@@ -78,6 +79,8 @@ private:
     double input_timeout_ = 0.5;
     double deadzone_ = 0.05;
     double scale_speed_ = 1.0;
+    std::string command_input_topic_;
+    std::string status_output_topic_;
 
     geometry_msgs::msg::Twist last_command_;
     rclcpp::Time last_command_time_;
@@ -131,6 +134,31 @@ private:
             input_timeout_ = command["input_timeout"].as<double>();
             deadzone_ = command["deadzone"].as<double>();
             scale_speed_ = command["scale_speed"].as<double>(1.0);
+
+            YAML::Node ros2 = config["arm"]["ros2"];
+            if (!ros2 || !ros2.IsMap()) {
+                throw std::runtime_error("Missing arm.ros2 section in config");
+            }
+            YAML::Node topics = ros2["topics"];
+            if (!topics || !topics.IsMap()) {
+                throw std::runtime_error("Missing arm.ros2.topics section in config");
+            }
+            // Load command input (subscriber) and status output (publisher) topics from YAML.
+            if (!topics["command_input"] || !topics["command_input"].IsScalar()) {
+                throw std::runtime_error("Missing arm.ros2.topics.command_input in config");
+            }
+            if (!topics["status_output"] || !topics["status_output"].IsScalar()) {
+                throw std::runtime_error("Missing arm.ros2.topics.status_output in config");
+            }
+
+            command_input_topic_ = topics["command_input"].as<std::string>();
+            status_output_topic_ = topics["status_output"].as<std::string>();
+            if (command_input_topic_.empty()) {
+                throw std::runtime_error("arm.ros2.topics.command_input must not be empty");
+            }
+            if (status_output_topic_.empty()) {
+                throw std::runtime_error("arm.ros2.topics.status_output must not be empty");
+            }
 
             RCLCPP_INFO(this->get_logger(), "Configuration loaded successfully");
             return true;
