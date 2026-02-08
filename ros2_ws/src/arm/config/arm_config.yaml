@@ -66,4 +66,4 @@ arm:
     
     topics:
       command_input: "/arm/cmd_vel"    # Subscribe to arm velocity commands
-      status_output: "/arm/status"     # Publish joint states
+      joint_states_output: "/arm/joint_states"  # Publish sensor_msgs/JointState

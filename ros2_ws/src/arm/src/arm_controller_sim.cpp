@@ -1,15 +1,13 @@
 #include <rclcpp/rclcpp.hpp>
 #include <geometry_msgs/msg/twist.hpp>
-#include <std_msgs/msg/string.hpp>
+#include <sensor_msgs/msg/joint_state.hpp>
 #include <ament_index_cpp/get_package_share_directory.hpp>
 #include <yaml-cpp/yaml.h>
 #include <chrono>
 #include <cmath>
 #include <algorithm>
-#include <iomanip>
 #include <map>
 #include <memory>
-#include <sstream>
 #include <string>
 #include <vector>
 
@@ -25,8 +23,11 @@ struct SimulatedJoint {
     std::string name;
     double max_speed;
     double max_accel;
+    double gear_ratio;
+    int microsteps;
     double current_speed = 0.0;
     double target_speed = 0.0;
+    double current_position = 0.0;
 
     void update(double dt_s) {
         double delta = target_speed - current_speed;
@@ -37,6 +38,19 @@ struct SimulatedJoint {
         } else {
             current_speed = target_speed;
         }
+
+        current_position += steps_to_radians(current_speed * dt_s);
+    }
+
+    double steps_to_radians(double steps) const
+    {
+        constexpr double kTwoPi = 6.28318530717958647692;
+        const double steps_per_output_rev =
+            static_cast<double>(microsteps) * gear_ratio;
+        if (steps_per_output_rev <= 0.0) {
+            return 0.0;
+        }
+        return steps * kTwoPi / steps_per_output_rev;
     }
 };
 
@@ -56,8 +70,8 @@ public:
             10,
             std::bind(&ArmControllerSim::cmd_callback, this, std::placeholders::_1));
 
-        status_publisher_ = this->create_publisher<std_msgs::msg::String>(
-            status_output_topic_,
+        joint_states_publisher_ = this->create_publisher<sensor_msgs::msg::JointState>(
+            joint_states_output_topic_,
             10);
 
         control_timer_ = this->create_wall_timer(
@@ -69,7 +83,8 @@ public:
 
         RCLCPP_INFO(this->get_logger(), "Simulated Arm Controller initialized (SIM MODE)");
         RCLCPP_INFO(this->get_logger(), "Subscribing to %s", command_input_topic_.c_str());
-        RCLCPP_INFO(this->get_logger(), "Publishing status to %s", status_output_topic_.c_str());
+        RCLCPP_INFO(this->get_logger(), "Publishing joint states to %s",
+            joint_states_output_topic_.c_str());
     }
 
 private:
@@ -80,14 +95,14 @@ private:
     double deadzone_ = 0.05;
     double scale_speed_ = 1.0;
     std::string command_input_topic_;
-    std::string status_output_topic_;
+    std::string joint_states_output_topic_;
 
     geometry_msgs::msg::Twist last_command_;
     rclcpp::Time last_command_time_;
     rclcpp::Time last_update_time_;
 
     rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_subscription_;
-    rclcpp::Publisher<std_msgs::msg::String>::SharedPtr status_publisher_;
+    rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_states_publisher_;
     rclcpp::TimerBase::SharedPtr control_timer_;
 
     bool load_config()
@@ -122,6 +137,8 @@ private:
                 sim_joint.name = joint["name"].as<std::string>();
                 sim_joint.max_speed = joint_limits["max_speed"].as<double>();
                 sim_joint.max_accel = joint_limits["max_accel"].as<double>();
+                sim_joint.gear_ratio = joint["gear_ratio"].as<double>();
+                sim_joint.microsteps = joint["microsteps"].as<int>();
 
                 joints_[joint_key] = sim_joint;
                 joint_order_.push_back(joint_key);
@@ -143,21 +160,26 @@ private:
             if (!topics || !topics.IsMap()) {
                 throw std::runtime_error("Missing arm.ros2.topics section in config");
             }
-            // Load command input (subscriber) and status output (publisher) topics from YAML.
+            // Load command input and joint states output topics from YAML.
             if (!topics["command_input"] || !topics["command_input"].IsScalar()) {
                 throw std::runtime_error("Missing arm.ros2.topics.command_input in config");
             }
-            if (!topics["status_output"] || !topics["status_output"].IsScalar()) {
-                throw std::runtime_error("Missing arm.ros2.topics.status_output in config");
+            YAML::Node joint_states_output = topics["joint_states_output"];
+            if (!joint_states_output || !joint_states_output.IsScalar()) {
+                // Backward compatibility for older config key.
+                joint_states_output = topics["status_output"];
+            }
+            if (!joint_states_output || !joint_states_output.IsScalar()) {
+                throw std::runtime_error("Missing arm.ros2.topics.joint_states_output in config");
             }
 
             command_input_topic_ = topics["command_input"].as<std::string>();
-            status_output_topic_ = topics["status_output"].as<std::string>();
+            joint_states_output_topic_ = joint_states_output.as<std::string>();
             if (command_input_topic_.empty()) {
                 throw std::runtime_error("arm.ros2.topics.command_input must not be empty");
             }
-            if (status_output_topic_.empty()) {
-                throw std::runtime_error("arm.ros2.topics.status_output must not be empty");
+            if (joint_states_output_topic_.empty()) {
+                throw std::runtime_error("arm.ros2.topics.joint_states_output must not be empty");
             }
 
             RCLCPP_INFO(this->get_logger(), "Configuration loaded successfully");
@@ -195,7 +217,7 @@ private:
 
         apply_command_to_targets();
         update_joints(dt);
-        publish_status();
+        publish_joint_states(now);
     }
 
     void apply_command_to_targets()
@@ -232,28 +254,27 @@ private:
         }
     }
 
-    void publish_status()
+    void publish_joint_states(const rclcpp::Time &stamp)
     {
-        auto status_msg = std_msgs::msg::String();
-        std::stringstream ss;
-        ss << std::fixed << std::setprecision(2);
-        ss << "Joint Speeds: ";
+        sensor_msgs::msg::JointState msg;
+        msg.header.stamp = stamp;
+        msg.name.reserve(joint_order_.size());
+        msg.position.reserve(joint_order_.size());
+        msg.velocity.reserve(joint_order_.size());
 
-        bool first = true;
         for (const auto &key : joint_order_) {
             auto it = joints_.find(key);
             if (it == joints_.end()) {
                 continue;
             }
-            if (!first) {
-                ss << " ";
-            }
-            ss << it->second.name << "=" << it->second.current_speed;
-            first = false;
+
+            const SimulatedJoint &joint = it->second;
+            msg.name.push_back(key);
+            msg.position.push_back(joint.current_position);
+            msg.velocity.push_back(joint.steps_to_radians(joint.current_speed));
         }
 
-        status_msg.data = ss.str();
-        status_publisher_->publish(status_msg);
+        joint_states_publisher_->publish(msg);
     }
 };
 

@@ -1,6 +1,6 @@
 #include <rclcpp/rclcpp.hpp>
-#include <std_msgs/msg/float32.hpp>
 #include <geometry_msgs/msg/twist.hpp>
+#include <sensor_msgs/msg/joint_state.hpp>
 #include <ament_index_cpp/get_package_share_directory.hpp>
 #include <yaml-cpp/yaml.h>
 #include <fstream>
@@ -46,10 +46,19 @@ public:
                 std::bind(&ArmController::cmd_callback, this, std::placeholders::_1));
             RCLCPP_INFO(this->get_logger(), "Subscribing to command topic: %s", command_input_topic_.c_str());
 
+            joint_states_publisher_ = this->create_publisher<sensor_msgs::msg::JointState>(
+                joint_states_output_topic_,
+                10);
+            RCLCPP_INFO(this->get_logger(), "Publishing joint states to topic: %s",
+                joint_states_output_topic_.c_str());
+
             // Create timer for control loop
             control_timer_ = this->create_wall_timer(
             std::chrono::milliseconds(10),  // 100 Hz
             std::bind(&ArmController::control_loop, this));
+
+            last_command_time_ = this->now();
+            last_update_time_ = this->now();
         }
 
 private:
@@ -69,6 +78,7 @@ private:
         double max_accel;      // steps/sec^2
         double current_speed;  // steps/sec
         double target_speed;   // steps/sec
+        double current_position; // radians
         
         // hardware state
         bool enabled;
@@ -91,6 +101,7 @@ private:
 
     // Configuration
     std::map<std::string, JointConfig> joints_;
+    std::vector<std::string> joint_order_;
     std::map<std::string, GPIOPin> dir_pins_;
     std::map<std::string, GPIOPin> enable_pins_;
     std::map<std::string, StepPwm> step_pwms_;
@@ -99,11 +110,14 @@ private:
     double deadzone_;
     double scale_speed_;
     std::string command_input_topic_;
+    std::string joint_states_output_topic_;
     rclcpp::Time last_command_time_;
+    rclcpp::Time last_update_time_;
     geometry_msgs::msg::Twist last_command_;
 
-    // Subscriptions
+    // ROS2 interfaces
     rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_subscription_;
+    rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_states_publisher_;
     rclcpp::TimerBase::SharedPtr control_timer_;
 
     bool load_config()
@@ -147,9 +161,11 @@ private:
                 jc.max_accel = joint_limits["max_accel"].as<double>();
                 jc.current_speed = 0.0;
                 jc.target_speed = 0.0;
+                jc.current_position = 0.0;
                 jc.enabled = false;
 
                 joints_[joint_key] = jc;
+                joint_order_.push_back(joint_key);
             }
 
             // Load command parameters
@@ -173,10 +189,24 @@ private:
             if (!topics["command_input"] || !topics["command_input"].IsScalar()) {
                 throw std::runtime_error("Missing arm.ros2.topics.command_input in config");
             }
+            YAML::Node joint_states_output = topics["joint_states_output"];
+            if (!joint_states_output || !joint_states_output.IsScalar()) {
+                // Backward compatibility for older config key.
+                joint_states_output = topics["status_output"];
+            }
+            if (!joint_states_output || !joint_states_output.IsScalar()) {
+                throw std::runtime_error(
+                    "Missing arm.ros2.topics.joint_states_output in config");
+            }
 
             command_input_topic_ = topics["command_input"].as<std::string>();
+            joint_states_output_topic_ = joint_states_output.as<std::string>();
             if (command_input_topic_.empty()) {
                 throw std::runtime_error("arm.ros2.topics.command_input must not be empty");
+            }
+            if (joint_states_output_topic_.empty()) {
+                throw std::runtime_error(
+                    "arm.ros2.topics.joint_states_output must not be empty");
             }
 
             RCLCPP_INFO(this->get_logger(), "Configuration loaded successfully");
@@ -210,6 +240,20 @@ private:
 
     void control_loop()
     {
+        const auto now = this->now();
+        double dt = (now - last_update_time_).seconds();
+        if (dt <= 0.0) {
+            dt = 0.01;
+        }
+        last_update_time_ = now;
+
+        if ((now - last_command_time_).seconds() > input_timeout_) {
+            last_command_ = geometry_msgs::msg::Twist();
+        }
+
+        apply_command_to_targets();
+        update_joint_states(dt);
+        publish_joint_states(now);
     }
 
     void set_motor_speed(JointConfig &joint, double speed)
@@ -217,7 +261,84 @@ private:
         // determine direction
         bool forward = (speed > 0);
         if (joint.reversed) forward = !forward;
+        (void)forward;
+    }
 
+    static double steps_to_radians(const JointConfig &joint, double steps)
+    {
+        constexpr double kTwoPi = 6.28318530717958647692;
+        const double steps_per_output_rev =
+            static_cast<double>(joint.microsteps) * joint.gear_ratio;
+        if (steps_per_output_rev <= 0.0) {
+            return 0.0;
+        }
+        return steps * kTwoPi / steps_per_output_rev;
+    }
+
+    void set_target_with_limits(const std::string &joint_key, double target)
+    {
+        auto it = joints_.find(joint_key);
+        if (it == joints_.end()) {
+            return;
+        }
+
+        if (std::abs(target) < deadzone_) {
+            target = 0.0;
+        }
+
+        JointConfig &joint = it->second;
+        target = std::max(-joint.max_speed, std::min(joint.max_speed, target));
+        joint.target_speed = target;
+    }
+
+    void apply_command_to_targets()
+    {
+        // Current axis mapping:
+        // angular.z -> base, angular.y -> shoulder, angular.x -> elbow.
+        set_target_with_limits("base", last_command_.angular.z);
+        set_target_with_limits("shoulder", last_command_.angular.y);
+        set_target_with_limits("elbow", last_command_.angular.x);
+    }
+
+    void update_joint_states(double dt)
+    {
+        for (auto &entry : joints_) {
+            JointConfig &joint = entry.second;
+
+            const double delta = joint.target_speed - joint.current_speed;
+            const double max_change = joint.max_accel * dt;
+            if (std::abs(delta) > max_change) {
+                joint.current_speed += (delta > 0.0 ? max_change : -max_change);
+            } else {
+                joint.current_speed = joint.target_speed;
+            }
+
+            joint.current_position += steps_to_radians(joint, joint.current_speed * dt);
+            set_motor_speed(joint, joint.current_speed);
+        }
+    }
+
+    void publish_joint_states(const rclcpp::Time &stamp)
+    {
+        sensor_msgs::msg::JointState msg;
+        msg.header.stamp = stamp;
+        msg.name.reserve(joint_order_.size());
+        msg.position.reserve(joint_order_.size());
+        msg.velocity.reserve(joint_order_.size());
+
+        for (const auto &key : joint_order_) {
+            auto it = joints_.find(key);
+            if (it == joints_.end()) {
+                continue;
+            }
+
+            const JointConfig &joint = it->second;
+            msg.name.push_back(key);
+            msg.position.push_back(joint.current_position);
+            msg.velocity.push_back(steps_to_radians(joint, joint.current_speed));
+        }
+
+        joint_states_publisher_->publish(msg);
     }
 };
 
