@@ -1,0 +1,32 @@
+marker_mappings:
+  keyboard:
+    ids: [0,1,2,3]
+    size: 0.02 # meters
+    description: "2x2 cm markers at keyboard corners"
+  usb_slot:
+    ids: [4, 5]
+    size: 0.01 # meters
+    description: "1x1 cm markers at USB slots"
+  nav_post_1:
+    ids: [10]
+    size: 0.20 # meters
+    description: "20x20 cm markers on navigation post 1 (provided by comp)"
+  nav_post_2:
+    ids: [11]
+    size: 0.20 # meters
+    description: "20x20 cm markers on navigation post 2 (provided by comp)"
+
+
+/aruco_node:
+  ros__parameters:
+    marker_size_dict:
+      0: 0.02
+      1: 0.01
+      2: 0.2
+    aruco_dictionary_id: DICT_4X4_50
+    debug_topic: /perception/aruco_debug
+
+    
+    # ouput topics
+    detected_markers_topic: /perception/detected_markers
+    marker_poses_topic: /perception/marker_poses
