@@ -61,6 +61,10 @@ public:
             last_update_time_ = this->now();
         }
 
+    ~ArmController() {
+        cleanup_gpio();
+    }
+
 private:
 
     struct JointConfig {
@@ -105,6 +109,10 @@ private:
     std::map<std::string, GPIOPin> dir_pins_;
     std::map<std::string, GPIOPin> enable_pins_;
     std::map<std::string, StepPwm> step_pwms_;
+
+    std::map<int, int> gpio_value_fds_;  // pin -> fd
+    std::map<int, int> last_dir_level_;  // dir pin -> last level
+    std::vector<int> exported_pins_;     // pins this module exported (for teardown)
 
     double input_timeout_;
     double deadzone_;
@@ -222,8 +230,110 @@ private:
         return false;
     }
 
-    void cleanup_gpio(){
-        // TODO
+
+
+    static inline void write_gpio_fd(int fd, int v) {
+        const char c = v ? '1' : '0';
+        lseek(fd, 0, SEEK_SET);
+        (void)::write(fd, &c, 1);
+    }
+
+    static bool write_text(const std::string &path, const std::string &value)
+    {
+        std::ofstream out(path);
+        if (!out.is_open()) {
+            return false;
+        }
+        out << value;
+        return true;
+    }
+
+    enum class Direction { Forward, Reverse };
+
+    void set_gpio(const JointConfig& joint, float hz, Direction dir, double dt_s) {
+        if (joint.dir_pin < 0 || joint.step_pin < 0) return;
+        if (hz < 0.0f) hz = 0.0f;
+        if (dt_s <= 0.0) dt_s = 0.01;
+
+        // Get dir_level for writing to pin
+        Direction effective_dir = dir;
+        if (joint.reversed) {
+            effective_dir = (dir == Direction::Forward) ? Direction::Reverse : Direction::Forward;
+        }
+        const int dir_level = (effective_dir == Direction::Forward) ? 1 : 0;
+
+
+        int step_fd = gpio_value_fds_.at(joint.step_pin);
+        int dir_fd  = gpio_value_fds_.at(joint.dir_pin);
+        
+        // Set direction; always write on first use of this pin.
+        const auto it = last_dir_level_.find(joint.dir_pin);
+        const bool dir_changed = (it == last_dir_level_.end()) || (it->second != dir_level);
+        if (dir_changed) {
+            write_gpio_fd(dir_fd, dir_level);
+            last_dir_level_[joint.dir_pin] = dir_level;
+            std::this_thread::sleep_for(std::chrono::microseconds(10));
+        }
+
+        // Treat very low rates as zero to avoid creep.
+        static std::map<int, double> step_fraction;  // step pin -> fractional carry
+        if (hz < 1.0f) {
+            write_gpio_fd(step_fd, 0);
+            step_fraction[joint.step_pin] = 0.0;
+            return;
+        }
+
+        // Generate pulses for one control slice based on real loop dt.
+        const double kControlSliceS = std::clamp(dt_s, 0.001, 0.05);
+        const int kControlSliceUs = std::max(
+            1, static_cast<int>(std::llround(kControlSliceS * 1e6)));
+
+        // DM542T requires >= 2.5us, DM320T requires >= 7.5us, so we use 8 here.
+        constexpr int kMinPulseUs = 8;
+
+        const double pulses_exact = static_cast<double>(hz) * kControlSliceS +
+                                    step_fraction[joint.step_pin];
+        int pulses = static_cast<int>(std::floor(pulses_exact));
+        step_fraction[joint.step_pin] = pulses_exact - static_cast<double>(pulses);
+
+        if (pulses <= 0) {
+            write_gpio_fd(step_fd, 0);
+            return;
+        }
+
+        const int period_us = std::max(2 * kMinPulseUs, kControlSliceUs / pulses);
+        const int high_us = std::max(kMinPulseUs, period_us / 2); // 50% duty cycle
+        const int low_us = std::max(kMinPulseUs, period_us - high_us);
+
+        for (int i = 0; i < pulses; ++i) {
+            write_gpio_fd(step_fd, 1);
+            std::this_thread::sleep_for(std::chrono::microseconds(high_us));
+            write_gpio_fd(step_fd, 0);
+            std::this_thread::sleep_for(std::chrono::microseconds(low_us));
+        }
+    }
+
+    void cleanup_gpio() {
+        // first, stop pulses
+        for (const auto& [k, j] : joints_) {
+            const auto it = gpio_value_fds_.find(j.step_pin);
+            if (it != gpio_value_fds_.end() && it->second >= 0) {
+                write_gpio_fd(it->second, 0);
+            }
+        }
+
+        // Close open fds
+        for (auto& [pin, fd] : gpio_value_fds_) {
+            if (fd >= 0) ::close(fd);
+        }
+        gpio_value_fds_.clear();
+        last_dir_level_.clear();
+
+        // Unexport only what we exported
+        for (int pin : exported_pins_) {
+            write_text("/sys/class/gpio/unexport", std::to_string(pin));
+        }
+        exported_pins_.clear();
     }
 
     void cmd_callback(const geometry_msgs::msg::Twist::SharedPtr msg)
@@ -256,12 +366,10 @@ private:
         publish_joint_states(now);
     }
 
-    void set_motor_speed(JointConfig &joint, double speed)
+    void set_motor_speed(JointConfig &joint, double speed, double dt)
     {
-        // determine direction
-        bool forward = (speed > 0);
-        if (joint.reversed) forward = !forward;
-        (void)forward;
+        const Direction dir = (speed >= 0.0) ? Direction::Forward : Direction::Reverse;
+        set_gpio(joint, static_cast<float>(std::abs(speed)), dir, dt);
     }
 
     static double steps_to_radians(const JointConfig &joint, double steps)
@@ -314,7 +422,7 @@ private:
             }
 
             joint.current_position += steps_to_radians(joint, joint.current_speed * dt);
-            set_motor_speed(joint, joint.current_speed);
+            set_motor_speed(joint, joint.current_speed, dt);
         }
     }
 

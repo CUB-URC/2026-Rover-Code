@@ -1,1 +1,0 @@
-/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/rover_bringup/ament_cmake_core/rover_bringupConfig-version.cmake
