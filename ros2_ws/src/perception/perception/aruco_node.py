@@ -14,44 +14,50 @@
 
 ////////////////////////////////////////////////////////////////
 
-for testing U need...
+TESTING WITH WEBCAM
+--------------------------------------
+install driver if needed:
+    sudo apt install ros-humble-v4l2-camera
 
--   a system with CUDA support (nvidia gpu)
--   you need the zed sdk.
--   you need the zed-ros2-wrapper and zed-ros2-interfaces repos. 
-    these must be in the /src folder with the other packages
-
-
-run these two commands in each of the three terminals youre gonna need for sourcing
-
+source in every terminal:
     source /opt/ros/humble/setup.bash
     source ~/2026-Rover-Code/ros2_ws/install/setup.bash
 
-rebuild everything via
+terminal 1: start webcam driver
+    ros2 run v4l2_camera v4l2_camera_node --ros-args \
+        -p image_size:=[640,480] \
+        -p camera_frame_id:=camera
 
-    colcon build --symlink-install
+terminal 2: start this node (remap image + camera_info to v4l2 topics)
+    ros2 run perception aruco_node --ros-args \
+        --remap /image:=/image_raw \
+        -p camera_info_topic:=/camera_info
 
-terminal 1: start cam driver
+terminal 3: visualization
+    ros2 run rqt_image_view rqt_image_view
+    # select '/perception/aruco_debug' in the dropdown
 
-    ros2 launch zed_wrapper zed_camera.launch.py camera_model:=zed2i
 
-    [faster]
+TESTING WITH ZED 2i
+-------------------
+requires: CUDA, ZED SDK, zed-ros2-wrapper + zed-ros2-interfaces in /src
 
-        ros2 launch zed_wrapper zed_camera.launch.py \
+terminal 1: start ZED driver (fast config)
+    ros2 launch zed_wrapper zed_camera.launch.py \
         camera_model:=zed2i \
         general.video_resolution:=VGA \
         general.pub_frame_rate:=10.0 \
         depth.depth_mode:=NONE
 
 terminal 2: start this node
-    
-    # remap the generic /image input to what the zed 2i likes
-    ros2 run perception aruco_node --ros-args --remap /image:=/zed/zed_node/rgb/color/rect/image
+    ros2 run perception aruco_node --ros-args \
+        --remap /image:=/zed/zed_node/rgb/image_rect_color
+
+    # camera_info_topic defaults to /zed/zed_node/rgb/camera_info — no -p needed
 
 terminal 3: visualization
-    
     ros2 run rqt_image_view rqt_image_view
-    # select '/perception/aruco_debug' in the top-left dropdown
+    # select '/perception/aruco_debug' in the dropdown
 
 """
 
@@ -72,22 +78,22 @@ class ArucoNode(Node):
     def __init__(self):
         super().__init__("aruco_node")
 
-        self._setup_parameters()
-        self._load_config()
-        self._setup_subscriptions()
-        self._setup_publishers()
-
-        # lookup tables 
+        # --- LOOKUP TABLES ---
         self.marker_sizes = {}
         self.marker_missions = {}
 
-       # --- STATE INIT ---
+        # --- STATE INIT ---
         self.intrinsic_matrix = None
         self.distortion_coeffs = None
         # todo: latest depth
-       
+
         # --- SETUP ---
         self.bridge = CvBridge()
+
+        self._setup_parameters()   # populates self.config, self.dictionary_id_name
+        self._load_config()         # populates self.marker_sizes, self.marker_missions
+        self._setup_subscriptions()
+        self._setup_publishers()
 
         try:
             dictionary_id = getattr(cv2.aruco, self.dictionary_id_name)
@@ -101,11 +107,22 @@ class ArucoNode(Node):
                 f"Invalid ArUco Dictionary: {self.dictionary_id_name}"
             )
 
+    def _load_config(self):
+        """maps marker ids -> mission objectives"""
+
+        for mission, details in self.config['marker_mappings'].items():
+            for id in details['ids']:
+                self.marker_sizes[id] = details['size']
+                self.marker_missions[id] = mission
+
+        self.get_logger().info(f"Loaded config: {self.marker_missions}")
+
     def _setup_parameters(self):
         # --- PARAMETERS ---
         config_path = self.declare_parameter("config_path", "config/aruco_config.yaml").get_parameter_value().string_value
         with open(config_path, 'r') as f:
-            config = yaml.safe_load(f)
+            self.config = yaml.safe_load(f)
+        config = self.config  # local alias for reads below
 
         # self.declare_parameter("aruco_dictionary_id", "DICT_4X4_50")
         
@@ -120,6 +137,12 @@ class ArucoNode(Node):
         self.declare_parameter(
             "marker_length", 0.02
         )  # default to 2 cm (adjust as needed) -> for pose estimation
+
+        # make this topic remappable so webcam testing works:
+        #   --ros-args -p camera_info_topic:=/camera/camera_info
+        self.camera_info_topic = self.declare_parameter(
+            "camera_info_topic", "/zed/zed_node/rgb/camera_info"
+        ).get_parameter_value().string_value
 
     def _setup_subscriptions(self):
 
@@ -140,8 +163,8 @@ class ArucoNode(Node):
 
         # sub to camera info to get calibration data for pose estimation
         self.camera_info_sub = self.create_subscription(
-            CameraInfo,  # todo
-            "/zed/zed_node/rgb/camera_info",
+            CameraInfo,
+            self.camera_info_topic,
             self.camera_info_callback,
             qos_profile=qos,
         )
@@ -155,17 +178,13 @@ class ArucoNode(Node):
         )
 
         # todo: per mission pubs (keyboard, usb, nav posts)
+        self.keyboard_pub = self.create_publisher(PoseStamped, "mission/keyboard_pose", 10)
+        self.usb_pub = self.create_publisher(PoseStamped, "mission/usb_pose", 10)
+        self.nav_post_1_pub = self.create_publisher(PoseStamped, "mission/nav_post_1_pose", 10)
+        self.nav_post_2_pub = self.create_publisher(PoseStamped, "mission/nav_post_2_pose", 10)
+        self.start_gate_pub = self.create_publisher(PoseStamped, "mission/start_gate_pose", 10)
+
         # todo: TF broadcaster for rviz
-
-    def _load_config(self):
-        """maps marker ids -> mission objectives"""
-
-        for mission, details in self.config['marker_mappings'].items():
-            for id in details['ids']:
-                self.marker_sizes[id] = details['size']
-                self.marker_missions[id] = mission
-
-        self.get_logger().info(f"Loaded config: {self.marker_missions}")
 
     def camera_info_callback(self, msg):
         """Get camera calibration from ZED camera_info topic for pose estimation"""
@@ -197,7 +216,7 @@ class ArucoNode(Node):
 
                 for i, corner in enumerate(corners):
                     marker_id = ids[i][0]
-                    marker_size = self.marker_sizes.get(marker_id, default=0.02) 
+                    marker_size = self.marker_sizes.get(marker_id, 0.02)
 
 
                     # 3.2 estimate pose of each marker
@@ -214,7 +233,7 @@ class ArucoNode(Node):
                     # 3.3 draw axis on image
                     cv2.drawFrameAxes(cv_image, self.intrinsic_matrix, self.distortion_coeffs, rvec, tvec, marker_size * 0.5)
 
-                    # 3.4 conver to ROS pose message
+                    # 3.4 convert to ROS pose message
                     pose = Pose()
                     pose.position.x = tvec[0][0][0]
                     pose.position.y = tvec[0][0][1]
@@ -230,14 +249,19 @@ class ArucoNode(Node):
 
                     pose_array.poses.append(pose)
 
+                    # 3.6 publish mission specific topics based on marker id, for each iteration
+                    self._publish_mission_objective(marker_id, pose, msg.header.stamp)
+
                     self.get_logger().info(
-                        f"Marker {marker_id}: pose=({tvec[0][0][0]:.3f}, )"
-                        f"({tvec[0][0][1]:.3f}, {tvec[0][0][2]:.3f}), "
+                        f"Marker {marker_id}: pose=({tvec[0][0][0]:.3f}, "
+                        f"{tvec[0][0][1]:.3f}, {tvec[0][0][2]:.3f})"
                     )
 
-                # 3.6 publish pose array
+                # 3.7 publish pose array
                 self.pose_publisher.publish(pose_array)
-                # todo: pub mission specific topics (?)
+                # todo : tf broadcast 
+                
+
 
 
             # 4. publish debug image
@@ -258,9 +282,10 @@ class ArucoNode(Node):
 
         pub_map = {
             "keyboard": self.keyboard_pub,
-            "usb": self.usb_pub,
+            "usb_slot": self.usb_pub,
             "nav_post_1": self.nav_post_1_pub,
             "nav_post_2": self.nav_post_2_pub,
+            "start_gate": self.start_gate_pub,
         }
 
         pub = pub_map.get(mission)
