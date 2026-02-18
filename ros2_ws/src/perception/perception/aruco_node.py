@@ -3,14 +3,16 @@
                     ARUCO TAG IDENTIFICATION
 ////////////////////////////////////////////////////////////////
 
+----- TODO -----
 
 [x] establish ZED 2i driver communication
 [x] implement real-time 2D ArUco tag identification
 [x] configure QoS for low-latency video streaming
-[ ] integrate zed depth map to get 3D (X, Y, Z) tag coordinates
 [x] map tag ids to specific mission objectives
-[ ] fuse with YOLO model for obstacle avoidance
-
+[x] test with webcam input (usb_cam) for development without ZED
+[ ] integrate zed depth map to get 3D (X, Y, Z) tag coordinates
+[ ] implement TF broadcasting for RViz visualization
+[ ] implement mission objective specific controller nodes that subscribes to aruco pose topics and plans / publishes drive/arm commands accordingly
 
 ////////////////////////////////////////////////////////////////
 
