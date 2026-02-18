@@ -24,6 +24,7 @@ setup(
         'console_scripts': [
             'aruco_node = perception.aruco_node:main',
             'debug_cam_node = perception.debug_cam_node:main',
+            'yolo_node = perception.yolo_node:main',
         ],
     },
 )
