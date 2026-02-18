@@ -8,39 +8,48 @@
 [x] implement real-time 2D ArUco tag identification
 [x] configure QoS for low-latency video streaming
 [ ] integrate zed depth map to get 3D (X, Y, Z) tag coordinates
-[ ] map tag ids to specific mission objectives
+[x] map tag ids to specific mission objectives
 [ ] fuse with YOLO model for obstacle avoidance
 
 
 ////////////////////////////////////////////////////////////////
 
-TESTING WITH WEBCAM
 --------------------------------------
+        TESTING WITH WEBCAM
+--------------------------------------
+
 install driver if needed:
-    sudo apt install ros-humble-v4l2-camera
+    sudo apt install ros-humble-usb-cam
 
 source in every terminal:
-    source /opt/ros/humble/setup.bash
-    source ~/2026-Rover-Code/ros2_ws/install/setup.bash
+    source /opt/ros/humble/setup.bash && \
+    source $HOME/2026-Rover-Code/ros2_ws/install/setup.bash
 
-terminal 1: start webcam driver
-    ros2 run v4l2_camera v4l2_camera_node --ros-args \
-        -p image_size:=[640,480] \
-        -p camera_frame_id:=camera
+terminal 1: webcam driver
+    ros2 run usb_cam usb_cam_node_exe --ros-args \
+        -p video_device:=/dev/video0 \
+        -p framerate:=30.0 \
+        -p image_width:=640 \
+        -p image_height:=480
 
-terminal 2: start this node (remap image + camera_info to v4l2 topics)
+terminal 2: aruco node (remap image + camera_info to usb_cam topics)
     ros2 run perception aruco_node --ros-args \
         --remap /image:=/image_raw \
-        -p camera_info_topic:=/camera_info
+        -p camera_info_topic:=/camera_info \ # remap topic
+        -p config_path:=$HOME/2026-Rover-Code/ros2_ws/src/perception/config/aruco_config.yaml 
+        # config_path is absolute path - must be passed explicitly
+
 
 terminal 3: visualization
     ros2 run rqt_image_view rqt_image_view
     # select '/perception/aruco_debug' in the dropdown
 
 
-TESTING WITH ZED 2i
--------------------
-requires: CUDA, ZED SDK, zed-ros2-wrapper + zed-ros2-interfaces in /src
+--------------------------------------
+        TESTING WITH ZED 2i
+--------------------------------------
+
+* PREREQS: CUDA, ZED SDK, zed-ros2-wrapper + zed-ros2-interfaces in /src
 
 terminal 1: start ZED driver (fast config)
     ros2 launch zed_wrapper zed_camera.launch.py \
@@ -49,11 +58,13 @@ terminal 1: start ZED driver (fast config)
         general.pub_frame_rate:=10.0 \
         depth.depth_mode:=NONE
 
-terminal 2: start this node
+terminal 2: aruco node
     ros2 run perception aruco_node --ros-args \
-        --remap /image:=/zed/zed_node/rgb/image_rect_color
+        --remap /image:=/zed/zed_node/rgb/color/rect/image \
+        -p config_path:=$HOME/2026-Rover-Code/ros2_ws/src/perception/config/aruco_config.yaml
 
-    # camera_info_topic defaults to /zed/zed_node/rgb/camera_info — no -p needed
+    # camera_info_topic defaults to zed — omit -p flag
+    # ZED publishes factory calibration automatically
 
 terminal 3: visualization
     ros2 run rqt_image_view rqt_image_view
@@ -85,27 +96,36 @@ class ArucoNode(Node):
         # --- STATE INIT ---
         self.intrinsic_matrix = None
         self.distortion_coeffs = None
-        # todo: latest depth
+        self.aruco_dict = None
+        self.aruco_params = None
+        # todo: latest depth // if using depth refinement
 
         # --- SETUP ---
         self.bridge = CvBridge()
 
-        self._setup_parameters()   # populates self.config, self.dictionary_id_name
-        self._load_config()         # populates self.marker_sizes, self.marker_missions
+        self._setup_parameters()  
+        self._load_config()         
         self._setup_subscriptions()
         self._setup_publishers()
 
         try:
             dictionary_id = getattr(cv2.aruco, self.dictionary_id_name)
             self.aruco_dict = cv2.aruco.getPredefinedDictionary(dictionary_id)
-            self.aruco_params = cv2.aruco.DetectorParameters()
+            # DetectorParameters() constructor added in OpenCV 4.7+
+            # use _create() fallback for 4.5.x (ROS2 Humble ships with 4.5.4)
+            if hasattr(cv2.aruco, "DetectorParameters"):
+                self.aruco_params = cv2.aruco.DetectorParameters()
+            else:
+                self.aruco_params = cv2.aruco.DetectorParameters_create()
             self.get_logger().info(
                 f"Loaded ArUco Dictionary: {self.dictionary_id_name}"
             )
-        except AttributeError:
-            self.get_logger().error(
-                f"Invalid ArUco Dictionary: {self.dictionary_id_name}"
+        except Exception as e:
+            self.get_logger().fatal(
+                f"Failed to load ArUco dictionary '{self.dictionary_id_name}': {e}. "
+                "Check that the dictionary name is valid (e.g. DICT_4X4_50)."
             )
+            raise
 
     def _load_config(self):
         """maps marker ids -> mission objectives"""
@@ -120,11 +140,16 @@ class ArucoNode(Node):
     def _setup_parameters(self):
         # --- PARAMETERS ---
         config_path = self.declare_parameter("config_path", "config/aruco_config.yaml").get_parameter_value().string_value
-        with open(config_path, 'r') as f:
-            self.config = yaml.safe_load(f)
-        config = self.config  # local alias for reads below
-
-        # self.declare_parameter("aruco_dictionary_id", "DICT_4X4_50")
+        try:
+            with open(config_path, 'r') as f:
+                self.config = yaml.safe_load(f)
+        except FileNotFoundError:
+            self.get_logger().fatal(
+                f"Config file not found: '{config_path}'. "
+                "Pass the absolute path via: --ros-args -p config_path:=/absolute/path/to/aruco_config.yaml"
+            )
+            raise
+        config = self.config 
         
         self.declare_parameter("aruco_dictionary_id", config.get('aruco_dictionary_id', 'DICT_4X4_50'))
         self.dictionary_id_name = (
@@ -132,16 +157,16 @@ class ArucoNode(Node):
         )
 
 
-        self.declare_parameter("intrinsic_matrix", [])  # intrinsic matrix
-        self.declare_parameter("distortion_coeffs", [])  # distortion coefficients
+        self.declare_parameter("intrinsic_matrix", [])  
+        self.declare_parameter("distortion_coeffs", []) 
         self.declare_parameter(
             "marker_length", 0.02
         )  # default to 2 cm (adjust as needed) -> for pose estimation
 
         # make this topic remappable so webcam testing works:
-        #   --ros-args -p camera_info_topic:=/camera/camera_info
+        #   --ros-args -p camera_info_topic:=/camera_info
         self.camera_info_topic = self.declare_parameter(
-            "camera_info_topic", "/zed/zed_node/rgb/camera_info"
+            "camera_info_topic", "/zed/zed_node/rgb/color/rect/camera_info"
         ).get_parameter_value().string_value
 
     def _setup_subscriptions(self):
@@ -174,27 +199,46 @@ class ArucoNode(Node):
         self.publisher_ = self.create_publisher(Image, "perception/aruco_debug", 10)
 
         self.pose_publisher = self.create_publisher(
-            PoseArray, "perception/aruco_poses", 10  # todo  # ?
+            PoseArray, "perception/aruco_poses", 10  # todo - adjust topic name ? id
         )
 
-        # todo: per mission pubs (keyboard, usb, nav posts)
+        # publish: per mission pubs (keyboard, usb, nav posts)
         self.keyboard_pub = self.create_publisher(PoseStamped, "mission/keyboard_pose", 10)
         self.usb_pub = self.create_publisher(PoseStamped, "mission/usb_pose", 10)
         self.nav_post_1_pub = self.create_publisher(PoseStamped, "mission/nav_post_1_pose", 10)
         self.nav_post_2_pub = self.create_publisher(PoseStamped, "mission/nav_post_2_pose", 10)
         self.start_gate_pub = self.create_publisher(PoseStamped, "mission/start_gate_pose", 10)
 
-        # todo: TF broadcaster for rviz
+        # todo: TF broadcast publisher for rviz
 
     def camera_info_callback(self, msg):
-        """Get camera calibration from ZED camera_info topic for pose estimation"""
+        """Get camera calibration from camera_info topic for pose estimation.
+        Rejects the message if K is all zeros (usb_cam publishes this when
+        no calibration file exists).
+        """
         if self.intrinsic_matrix is None:
-            self.intrinsic_matrix = np.array(msg.k).reshape(3, 3)
+            k = np.array(msg.k).reshape(3, 3)
+            if k[0, 0] == 0.0:
+                self.get_logger().warn(
+                    "camera_info received but K matrix is all zeros — "
+                    "no calibration file loaded. Detection will work but "
+                    "pose estimation is disabled until calibration is available.",
+                    throttle_duration_sec=5.0
+                )
+                return
+            self.intrinsic_matrix = k
             self.distortion_coeffs = np.array(msg.d)
-            self.get_logger().info("Received camera calibration parameters")
+            self.get_logger().info("Received camera calibration parameters — pose estimation enabled")
 
     def listener_callback(self, msg):
         try:
+            if self.aruco_dict is None:
+                self.get_logger().error(
+                    "ArUco dictionary not initialized — check startup logs.",
+                    throttle_duration_sec=5.0
+                )
+                return
+
             # 1. convert ROS image -> OpenCV image
             cv_image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
 
@@ -203,68 +247,72 @@ class ArucoNode(Node):
                 cv_image, self.aruco_dict, parameters=self.aruco_params
             )
 
-            # 3. if found, print IDs and draw boxes
-            if ids is not None and self.intrinsic_matrix is not None:
-                id_list = ids.flatten()
-                self.get_logger().info(f"Tags Detected: {id_list}")
+            # 3. always draw detections when markers are found
+            if ids is not None:
                 cv2.aruco.drawDetectedMarkers(cv_image, corners, ids)
 
-                # 3.1 estimate pose
-                pose_array = PoseArray()
-                pose_array.header.stamp = msg.header.stamp
-                pose_array.header.frame_id = "zed_camera_frame" # ? adjust
+                # 3.1 pose estimation — only when calibration is available
+                if self.intrinsic_matrix is not None:
+                    pose_array = PoseArray()
+                    pose_array.header.stamp = msg.header.stamp
+                    pose_array.header.frame_id = "zed_camera_frame"  # adjust
 
-                for i, corner in enumerate(corners):
-                    marker_id = ids[i][0]
-                    marker_size = self.marker_sizes.get(marker_id, 0.02)
+                    for i, corner in enumerate(corners):
+                        marker_id = ids[i][0]
+                        marker_size = self.marker_sizes.get(marker_id, 0.02)
 
+                        # 3.2 estimate pose of each marker
+                        rvec, tvec, _ = cv2.aruco.estimatePoseSingleMarkers(
+                            corner,
+                            marker_size,
+                            self.intrinsic_matrix,
+                            self.distortion_coeffs,
+                        )
 
-                    # 3.2 estimate pose of each marker
+                        # todo: integrate depth
 
-                    rvec, tvec, _ = cv2.aruco.estimatePoseSingleMarkers(
-                        corner,
-                        marker_size,
-                        self.intrinsic_matrix,
-                        self.distortion_coeffs,
-                    )
+                        # 3.3 draw axis on image
+                        cv2.drawFrameAxes(cv_image, self.intrinsic_matrix, self.distortion_coeffs, rvec, tvec, marker_size * 0.5)
 
-                    # todo: integrate depth ?? or maybe not
+                        # 3.4 convert to ROS pose message
+                        pose = Pose()
+                        pose.position.x = tvec[0][0][0]
+                        pose.position.y = tvec[0][0][1]
+                        pose.position.z = tvec[0][0][2]
 
-                    # 3.3 draw axis on image
-                    cv2.drawFrameAxes(cv_image, self.intrinsic_matrix, self.distortion_coeffs, rvec, tvec, marker_size * 0.5)
+                        # 3.5 convert rotation vector to quaternion
+                        rotation_matrix = cv2.Rodrigues(rvec[0][0])[0]
+                        quat = R.from_matrix(rotation_matrix).as_quat()  # [x, y, z, w]
+                        pose.orientation.x = quat[0]
+                        pose.orientation.y = quat[1]
+                        pose.orientation.z = quat[2]
+                        pose.orientation.w = quat[3]
 
-                    # 3.4 convert to ROS pose message
-                    pose = Pose()
-                    pose.position.x = tvec[0][0][0]
-                    pose.position.y = tvec[0][0][1]
-                    pose.position.z = tvec[0][0][2]
+                        pose_array.poses.append(pose)
 
-                    # 3.5 convert rotation matrix to quaternion 
-                    rotation_matrix = cv2.Rodrigues(rvec[0][0])[0]
-                    quat = R.from_matrix(rotation_matrix).as_quat()  # [x, y, z, w]
-                    pose.orientation.x = quat[0]
-                    pose.orientation.y = quat[1]
-                    pose.orientation.z = quat[2]
-                    pose.orientation.w = quat[3]
+                        # 3.6 publish mission-specific topic for this marker
+                        self._publish_mission_objective(marker_id, pose, msg.header.stamp)
 
-                    pose_array.poses.append(pose)
+                        self.get_logger().info(
+                            f"Marker {marker_id}: pose=({tvec[0][0][0]:.3f}, "
+                            f"{tvec[0][0][1]:.3f}, {tvec[0][0][2]:.3f})"
+                        )
 
-                    # 3.6 publish mission specific topics based on marker id, for each iteration
-                    self._publish_mission_objective(marker_id, pose, msg.header.stamp)
+                    # 3.7 publish pose array
+                    self.pose_publisher.publish(pose_array)
 
+                    # todo: tf broadcast
+
+                else:
+                    # detection-only mode: log IDs, no pose output
+                    missions = [self.marker_missions.get(marker_id, "unknown") for marker_id in ids.flatten()]
+                    
                     self.get_logger().info(
-                        f"Marker {marker_id}: pose=({tvec[0][0][0]:.3f}, "
-                        f"{tvec[0][0][1]:.3f}, {tvec[0][0][2]:.3f})"
+                        f"Tags Detected (no calibration — detection only): {ids.flatten()} | Missions: {missions}",
+                        throttle_duration_sec=2.0
                     )
 
-                # 3.7 publish pose array
-                self.pose_publisher.publish(pose_array)
-                # todo : tf broadcast 
-                
-
-
-
-            # 4. publish debug image
+            # 4. publish debug image (always, regardless of detections or calibration)
             debug_msg = self.bridge.cv2_to_imgmsg(cv_image, "bgr8")
             self.publisher_.publish(debug_msg)
 
