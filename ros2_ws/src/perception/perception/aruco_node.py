@@ -11,7 +11,7 @@
 [x] map tag ids to specific mission objectives
 [x] test with webcam input (usb_cam) for development without ZED
 [ ] integrate zed depth map to get 3D (X, Y, Z) tag coordinates
-[ ] implement TF broadcasting for RViz visualization
+[x] implement TF broadcasting for RViz visualization
 [ ] implement mission objective specific controller nodes that subscribes to aruco pose topics and plans / publishes drive/arm commands accordingly
 
 ////////////////////////////////////////////////////////////////
@@ -79,9 +79,10 @@ import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 from sensor_msgs.msg import Image, CameraInfo
-from geometry_msgs.msg import PoseArray, Pose, PoseStamped
+from geometry_msgs.msg import PoseArray, Pose, PoseStamped, TransformStamped
 from scipy.spatial.transform import Rotation as R
 from cv_bridge import CvBridge
+from tf2_ros import TransformBroadcaster # for RViz
 
 import cv2
 import numpy as np
@@ -203,8 +204,9 @@ class ArucoNode(Node):
         self.pose_publisher = self.create_publisher(
             PoseArray, "perception/aruco_poses", 10  # todo - adjust topic name ? id
         )
+        self.tf_broadcaster = TransformBroadcaster(self)
 
-        # publish: per mission pubs (keyboard, usb, nav posts)
+        # publish: per mission pubs (keyboard, usb, nav posts)        
         self.keyboard_pub = self.create_publisher(PoseStamped, "mission/keyboard_pose", 10)
         self.usb_pub = self.create_publisher(PoseStamped, "mission/usb_pose", 10)
         self.nav_post_1_pub = self.create_publisher(PoseStamped, "mission/nav_post_1_pose", 10)
@@ -273,24 +275,14 @@ class ArucoNode(Node):
 
                         # todo: integrate depth
 
-                        # 3.3 draw axis on image
+                        # 3.3-4 build the pose from tvec and quat from rotation matrix
+                        pose, quat = self._build_pose(tvec, rvec)
+                       
+                         # 3.5 draw axis on image
                         cv2.drawFrameAxes(cv_image, self.intrinsic_matrix, self.distortion_coeffs, rvec, tvec, marker_size * 0.5)
 
-                        # 3.4 convert to ROS pose message
-                        pose = Pose()
-                        pose.position.x = tvec[0][0][0]
-                        pose.position.y = tvec[0][0][1]
-                        pose.position.z = tvec[0][0][2]
-
-                        # 3.5 convert rotation vector to quaternion
-                        rotation_matrix = cv2.Rodrigues(rvec[0][0])[0]
-                        quat = R.from_matrix(rotation_matrix).as_quat()  # [x, y, z, w]
-                        pose.orientation.x = quat[0]
-                        pose.orientation.y = quat[1]
-                        pose.orientation.z = quat[2]
-                        pose.orientation.w = quat[3]
-
                         pose_array.poses.append(pose)
+                        self._broadcast_marker_tf(marker_id, pose, quat, msg.header.stamp)
 
                         # 3.6 publish mission-specific topic for this marker
                         self._publish_mission_objective(marker_id, pose, msg.header.stamp)
@@ -302,8 +294,6 @@ class ArucoNode(Node):
 
                     # 3.7 publish pose array
                     self.pose_publisher.publish(pose_array)
-
-                    # todo: tf broadcast
 
                 else:
                     # detection-only mode: log IDs, no pose output
@@ -320,6 +310,23 @@ class ArucoNode(Node):
 
         except Exception as e:
             self.get_logger().error(f"Error processing image: {str(e)}")
+
+    def _build_pose(self, tvec, rvec):
+        # 1. convert to ROS pose message
+        pose = Pose()
+        pose.position.x = tvec[0][0][0]
+        pose.position.y = tvec[0][0][1]
+        pose.position.z = tvec[0][0][2]
+
+        # 2. convert rotation vector to quaternion
+        rotation_matrix = cv2.Rodrigues(rvec[0][0])[0]
+        quat = R.from_matrix(rotation_matrix).as_quat()  # [x, y, z, w]
+        pose.orientation.x = quat[0]
+        pose.orientation.y = quat[1]
+        pose.orientation.z = quat[2]
+        pose.orientation.w = quat[3]
+
+        return pose, quat
 
     def _publish_mission_objective(self, marker_id, pose, timestamp):
         """Given a detected marker ID, publish the corresponding mission objective"""
@@ -346,8 +353,23 @@ class ArucoNode(Node):
 
         self.get_logger().info(f"Marker {marker_id} corresponds to mission: {mission}")
 
-    def get_marker_size(self, marker_id):
-        """Given mission context return marker size (m)"""
+    def _broadcast_marker_tf(self, marker_id, pose, quat, timestamp):
+        tf_stamped = TransformStamped()
+        tf_stamped.header.stamp = timestamp
+        tf_stamped.header.frame_id = "zed_camera_frame"
+        tf_stamped.child_frame_id = f"aruco_marker_{marker_id}"
+
+        tf_stamped.transform.translation.x = pose.position.x
+        tf_stamped.transform.translation.y = pose.position.y
+        tf_stamped.transform.translation.z = pose.position.z
+
+        tf_stamped.transform.rotation.x = quat[0]
+        tf_stamped.transform.rotation.y = quat[1]
+        tf_stamped.transform.rotation.z = quat[2]
+        tf_stamped.transform.rotation.w = quat[3]
+
+        self.tf_broadcaster.sendTransform(tf_stamped)
+
 
     # todo: depth refine callback and depth callback (???)
 
