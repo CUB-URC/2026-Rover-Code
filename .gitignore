@@ -1,3 +1,10 @@
 ros2_ws/build/
 ros2_ws/log/
 ros2_ws/install/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+*.env*
