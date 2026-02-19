@@ -1,79 +1,3 @@
-"""
-////////////////////////////////////////////////////////////////
-                    ARUCO TAG IDENTIFICATION
-////////////////////////////////////////////////////////////////
-
------ TODO -----
-
-[x] establish ZED 2i driver communication
-[x] implement real-time 2D ArUco tag identification
-[x] configure QoS for low-latency video streaming
-[x] map tag ids to specific mission objectives
-[x] test with webcam input (usb_cam) for development without ZED
-[ ] integrate zed depth map to get 3D (X, Y, Z) tag coordinates
-[x] implement TF broadcasting for RViz visualization
-[ ] implement mission objective specific controller nodes that subscribes to aruco pose topics and plans / publishes drive/arm commands accordingly
-
-////////////////////////////////////////////////////////////////
-
---------------------------------------
-        TESTING WITH WEBCAM
---------------------------------------
-
-install driver if needed:
-    sudo apt install ros-humble-usb-cam
-
-source in every terminal:
-    source /opt/ros/humble/setup.bash && \
-    source $HOME/2026-Rover-Code/ros2_ws/install/setup.bash
-
-terminal 1: webcam driver
-    ros2 run usb_cam usb_cam_node_exe --ros-args \
-        -p video_device:=/dev/video0 \
-        -p framerate:=30.0 \
-        -p image_width:=640 \
-        -p image_height:=480
-
-terminal 2: aruco node (remap image + camera_info to usb_cam topics)
-    ros2 run perception aruco_node --ros-args \
-        --remap /image:=/image_raw \
-        -p camera_info_topic:=/camera_info \ # remap topic
-        -p config_path:=$HOME/2026-Rover-Code/ros2_ws/src/perception/config/aruco_config.yaml 
-        # config_path is absolute path - must be passed explicitly
-
-
-terminal 3: visualization
-    ros2 run rqt_image_view rqt_image_view
-    # select '/perception/aruco_debug' in the dropdown
-
-
---------------------------------------
-        TESTING WITH ZED 2i
---------------------------------------
-
-* PREREQS: CUDA, ZED SDK, zed-ros2-wrapper + zed-ros2-interfaces in /src
-
-terminal 1: start ZED driver (fast config)
-    ros2 launch zed_wrapper zed_camera.launch.py \
-        camera_model:=zed2i \
-        general.video_resolution:=VGA \
-        general.pub_frame_rate:=10.0 \
-        depth.depth_mode:=NONE
-
-terminal 2: aruco node
-    ros2 run perception aruco_node --ros-args \
-        --remap /image:=/zed/zed_node/rgb/color/rect/image \
-        -p config_path:=$HOME/2026-Rover-Code/ros2_ws/src/perception/config/aruco_config.yaml
-
-    # camera_info_topic defaults to zed — omit -p flag
-    # ZED publishes factory calibration automatically
-
-terminal 3: visualization
-    ros2 run rqt_image_view rqt_image_view
-    # select '/perception/aruco_debug' in the dropdown
-
-"""
-
 import yaml
 import rclpy
 from rclpy.node import Node
@@ -86,7 +10,6 @@ from tf2_ros import TransformBroadcaster # for RViz
 
 import cv2
 import numpy as np
-
 
 class ArucoNode(Node):
     def __init__(self):
@@ -101,6 +24,7 @@ class ArucoNode(Node):
         self.distortion_coeffs = None
         self.aruco_dict = None
         self.aruco_params = None
+        self.aruco_detector = None  # ArucoDetector object (OpenCV 4.7+)
         # todo: latest depth // if using depth refinement
 
         # --- SETUP ---
@@ -114,11 +38,13 @@ class ArucoNode(Node):
         try:
             dictionary_id = getattr(cv2.aruco, self.dictionary_id_name)
             self.aruco_dict = cv2.aruco.getPredefinedDictionary(dictionary_id)
-            # DetectorParameters() constructor added in OpenCV 4.7+
-            # use _create() fallback for 4.5.x (ROS2 Humble ships with 4.5.4)
-            if hasattr(cv2.aruco, "DetectorParameters"):
-                self.aruco_params = cv2.aruco.DetectorParameters()
+            # OpenCV 4.7+ uses ArucoDetector; 4.5.x uses detectMarkers + DetectorParameters
+            if hasattr(cv2.aruco, "ArucoDetector"):
+                params = cv2.aruco.DetectorParameters()
+                self.aruco_detector = cv2.aruco.ArucoDetector(self.aruco_dict, params)
+                self.aruco_params = None  # not used in new API
             else:
+                self.aruco_detector = None  # use legacy detectMarkers path
                 self.aruco_params = cv2.aruco.DetectorParameters_create()
             self.get_logger().info(
                 f"Loaded ArUco Dictionary: {self.dictionary_id_name}"
@@ -236,9 +162,9 @@ class ArucoNode(Node):
 
     def listener_callback(self, msg):
         try:
-            if self.aruco_dict is None:
+            if self.aruco_dict is None and self.aruco_detector is None:
                 self.get_logger().error(
-                    "ArUco dictionary not initialized — check startup logs.",
+                    "ArUco detector not initialized — check startup logs.",
                     throttle_duration_sec=5.0
                 )
                 return
@@ -247,9 +173,14 @@ class ArucoNode(Node):
             cv_image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
 
             # 2. detect markers
-            corners, ids, _ = cv2.aruco.detectMarkers(
-                cv_image, self.aruco_dict, parameters=self.aruco_params
-            )
+            if self.aruco_detector is not None:
+                # OpenCV 4.7+ ArucoDetector API
+                corners, ids, _ = self.aruco_detector.detectMarkers(cv_image)
+            else:
+                # OpenCV 4.5.x legacy API
+                corners, ids, _ = cv2.aruco.detectMarkers(
+                    cv_image, self.aruco_dict, parameters=self.aruco_params
+                )
 
             # 3. always draw detections when markers are found
             if ids is not None:
@@ -266,12 +197,23 @@ class ArucoNode(Node):
                         marker_size = self.marker_sizes.get(marker_id, 0.02)
 
                         # 3.2 estimate pose of each marker
-                        rvec, tvec, _ = cv2.aruco.estimatePoseSingleMarkers(
-                            corner,
-                            marker_size,
-                            self.intrinsic_matrix,
-                            self.distortion_coeffs,
+                        # estimatePoseSingleMarkers removed in OpenCV 4.7+ — use solvePnP directly.
+                        # define the marker's 4 corners in its own local 3D space (Z=0 plane)
+                        half = marker_size / 2.0
+                        obj_points = np.array([
+                            [-half,  half, 0],
+                            [ half,  half, 0],
+                            [ half, -half, 0],
+                            [-half, -half, 0],
+                        ], dtype=np.float32)
+                        img_points = corner[0].astype(np.float32)  # shape (4,2)
+                        _, rvec, tvec = cv2.solvePnP(
+                            obj_points, img_points,
+                            self.intrinsic_matrix, self.distortion_coeffs
                         )
+                        # reshape to match old estimatePoseSingleMarkers output shape
+                        rvec = rvec.reshape(1, 1, 3)
+                        tvec = tvec.reshape(1, 1, 3)
 
                         # todo: integrate depth
 

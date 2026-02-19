@@ -16,4 +16,8 @@ RUN apt update && apt install -y \
 RUN rosdep init || true
 RUN rosdep update
 
+# Python dependencies — numpy pinned <2 (cv_bridge compiled against 1.x C API)
+COPY ros2_ws/src/perception/requirements.txt /tmp/requirements.txt
+RUN pip install -r /tmp/requirements.txt
+
 WORKDIR /workspace
