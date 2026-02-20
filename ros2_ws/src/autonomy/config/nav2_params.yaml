@@ -1,0 +1,244 @@
+# NAV2 STACK
+
+# TODO: get real measurements
+footprint: "[[0.5, 0.35], [0.5, -0.35], [-0.5, -0.35], [-0.5, 0.35]]"
+
+controller_server:
+  ros__parameters:
+    use_sim_time: false # set to true if using gazebo
+
+    controller_frequency: 20.0 # [Hz]
+    min_x_velocity_threshold: 0.001 
+    min_y_velocity_threshold: 0.5
+    min_theta_velocity_threshold: 0.001
+
+    failure_tolerance: 0.3 # [s]
+
+    progress_checker_plugin: "progress_checker"
+    goal_checker_plugins: ["general_goal_checker"]
+    controller_plugins: ["FollowPath"]
+
+    progress_checker:
+      plugin: "nav2_controller::SimpleProgressChecker"
+      required_movement_radius: 0.5 # [m] 
+      movement_time_allowance: 10.0 # [s] - before timeout 
+
+    general_goal_checker:
+      plugin: "nav2_controller::SimpleGoalChecker"
+      xy_goal_tolerance: 0.25 # [m]
+      yaw_goal_tolerance: 0.25 # [rad]
+      stateful: true # remember if rover has been in a goal area
+
+    # RPP - optimal for outdoor environments + noisy sensor input # (could attempt MPPI if we have spare compute)
+    FollowPath:
+      plugin: "nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController"
+
+      # TODO: Tune/measure velocity limits
+      desired_linear_vel: 0.3 # [m/s]
+      max_linear_accel: 0.3 # [m/s^2]
+      max_linear_decel: -0.5 # [m/s^2]
+
+      # TODO: Tune lookahead distance
+      lookahead_dist: 0.5 # [m]
+      min_lookahead_dist: 0.25 # when stopped
+      max_lookahead_dist: 0.8 # when at full speed
+      lookahead_time: 1.5 # [s]
+
+      # ROTATION
+      use_rotate_to_heading: true # rotate in place, then move
+      max_angular_accel: 2.0 # [rad/s^2] - TODO: tune
+      rotate_to_heading_min_angle: 0.524 # [rad] (30 deg)
+      rotate_to_heading_angular_vel: 0.8 # [rad/s]
+      max_robot_pose_search_dist: 10.0 
+
+      use_velocity_scaled_lookahead_dist: false
+      min_approach_linear_velocity: 0.05
+      approach_velocity_scaling_dist: 0.6
+
+      # OBSTACLE AVOIDANCE
+      use_collision_detection: true
+      max_allowed_time_to_collision_up_to_carrot: 1.0
+      
+      # VELOCITY CONTROL
+
+      # slow down using costmap
+      use_cost_regulated_linear_velocity_scaling: true
+      cost_scaling_dist: 0.8 
+      cost_scaling_gain: 1.2 # tuning
+      inflation_cost_scaling_factor: 5.0 # match costmap inflation
+
+      # slow during turns
+      use_regulated_linear_velocity_scaling: true
+      regulated_linear_scaling_min_radius: 1.2
+      regulated_linear_scaling_min_speed: 0.15
+
+      # PATH FOLLOWING
+      allow_reversing: false # TODO: change?
+      use_interpolation: true
+
+      use_goal_reached_check: true
+      goal_dist_tol: 0.25 
+      transform_tolerance: 1.0 # [s] - how old transforms can be
+      # allow more tolerance due to skid steer slip
+
+      use_fixed_curvature_lookahead: false
+      curvature_lookahead_dist: 0.25
+
+
+planner_server:
+  ros__parameters:
+    use_sim_time: false
+    planner_plugins: ["GridBased"]
+    
+    GridBased:
+      plugin: "nav2_navfn_planner/NavfnPlanner"
+      tolerance: 0.5 # [m]
+      use_astar: true
+      allow_unknown: true
+
+
+behavior_server:
+  ros__parameters:
+    use_sim_time: false
+
+    global_frame: odom
+    robot_base_frame: base_link
+    transform_tolerance: 1.0 # [s]
+    
+    costmap_topic: local_costmap/costmap_raw
+    footprint_topic: local_costmap/published_footprint
+    cycle_frequency: 10.0 # [Hz]
+
+    behavior_plugins: ["spin", "backup", "drive_on_heading", "assisted_teleop", "wait"]
+
+    spin:
+      plugin: "nav2_behaviors::Spin"
+      simulate_ahead_time: 2.0
+      max_rotational_vel: 0.8  # [rad/s]
+      min_rotational_vel: 0.4
+      rotational_acc_lim: 2.0
+    
+    backup:
+      plugin: "nav2_behaviors::BackUp"
+      simulate_ahead_time: 2.0
+      backup_dist: 0.5  
+      backup_speed: 0.15  
+    
+      
+    drive_on_heading:
+      plugin: "nav2_behaviors::DriveOnHeading"
+      simulate_ahead_time: 2.0
+      max_linear_vel: 0.3 
+      min_linear_vel: 0.1
+      linear_acc_lim: 0.3
+
+    assisted_teleop:
+      plugin: "nav2_behaviors::AssistedTeleop"
+      projection_time: 1.0
+      simulation_time_step: 0.1
+    
+    wait:
+      plugin: "nav2_behaviors::Wait"    
+
+
+
+waypoint_follower:
+  ros__parameters:
+    use_sim_time: false
+
+    loop_rate: 20
+    stop_on_failure: false
+    waypoint_task_executor_plugin: "wait_at_waypoint"
+
+    wait_at_waypoint:
+      plugin: "nav2_waypoint_follower::WaitAtWaypoint"
+      enabled: true
+      waypoint_pause_duration: 200 # [ms]
+
+
+
+velocity_smoother:
+  ros__parameters:
+    use_sim_time: false
+    
+    smoothing_frequency: 20.0 # [Hz]
+    scale_velocities: false
+    feedback: "OPEN_LOOP" # ?
+
+    # TODO: update w real values
+    # [lin x, lin y, ang z]
+    max_velocity: [0.3, 0.0, 0.8]
+    min_velocity: [-0.2, 0.0, -0.8]
+    max_accel: [0.3, 0.0, 2.0]
+    max_decel: [-0.5, 0.0, -2.0]
+
+    odom_topic: "odom"
+    odom_duration: 0.2 # [s] - buffer time
+    deadband_velocity: [0.0, 0.0, 0.0]
+    velocity_timeout: 1.0
+
+
+
+collision_smoother:
+  ros__parameters:
+    use_sim_time: false
+
+    base_frame_id: "base_link"
+    odom_frame_id: "odom"
+    cmd_vel_in_topic: "cmd_vel_smoothed"
+    cmd_vel_out_topic: "cmd_vel"
+    state_topic: "collision_monitor_state"
+
+    transform_tolerance: 1.0 
+    source_timeout: 5.0
+    stop_pub_timeout: 2.0
+    
+    observation_sources: ["scan"]
+    
+    scan:
+      type: "scan"
+      topic: "/scan"
+      min_height: 0.15  # [m] above wheel height
+      max_height: 2.0
+      enabled: true
+    
+    polygons: ["FootprintApproach"] # safety polygon 
+    
+    FootprintApproach:
+      type: "polygon"
+      points: "[0.5, 0.35], [0.5, -0.35], [-0.5, -0.35], [-0.5, 0.35]" # TODO: adjust to actual footprint
+      action_type: "stop"
+      min_points: 4
+      visualize: true
+      polygon_pub_topic: "polygon/footprint_approach"
+
+
+local_costmap: 
+  local_costmap:
+    ros__parameters:
+      use_sim_time: false
+      # TODO
+
+
+global_costmap:
+  global_costmap:
+    ros__parameters:
+      use_sim_time: false
+      # TODO
+
+
+lifecycle_manager_navigation:
+  ros__parameters:
+    use_sim_time: false
+    autostart: true
+    node_names: [
+      'controller_server',
+      'planner_server', 
+      'behavior_server',
+      'waypoint_follower',
+      'velocity_smoother',
+      'collision_monitor'
+    ]
+
+
+
