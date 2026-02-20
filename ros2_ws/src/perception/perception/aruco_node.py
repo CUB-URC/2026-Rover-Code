@@ -25,7 +25,7 @@ class ArucoNode(Node):
         self.aruco_dict = None
         self.aruco_params = None
         self.aruco_detector = None  # ArucoDetector object (OpenCV 4.7+)
-        # todo: latest depth // if using depth refinement
+        # TODO: latest depth // if using depth refinement
 
         # --- SETUP ---
         self.bridge = CvBridge()
@@ -128,7 +128,7 @@ class ArucoNode(Node):
         self.publisher_ = self.create_publisher(Image, "perception/aruco_debug", 10)
 
         self.pose_publisher = self.create_publisher(
-            PoseArray, "perception/aruco_poses", 10  # todo - adjust topic name ? id
+            PoseArray, "perception/aruco_poses", 10  # TODO - adjust topic name ? id
         )
         self.tf_broadcaster = TransformBroadcaster(self)
 
@@ -139,7 +139,7 @@ class ArucoNode(Node):
         self.nav_post_2_pub = self.create_publisher(PoseStamped, "mission/nav_post_2_pose", 10)
         self.start_gate_pub = self.create_publisher(PoseStamped, "mission/start_gate_pose", 10)
 
-        # todo: TF broadcast publisher for rviz
+        # TODO: TF broadcast publisher for rviz
 
     def camera_info_callback(self, msg):
         """Get camera calibration from camera_info topic for pose estimation.
@@ -313,7 +313,7 @@ class ArucoNode(Node):
         self.tf_broadcaster.sendTransform(tf_stamped)
 
 
-    # todo: depth refine callback and depth callback (???)
+    # TODO: depth refine callback and depth callback (???)
 
 
 def main(args=None):
