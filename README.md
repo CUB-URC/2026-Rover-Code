@@ -46,7 +46,7 @@ docker compose run nano
 | Device | Role | Specs |
 |--------|------|-------|
 | Jetson Orin Nano Super Dev Kit | Main rover controller | 8-core CPU, 8GB RAM |
-| Jetson Nano Dev Kit (×2) | Coprocessors | 4-core CPU, 4GB RAM each |
+| Jetson Nano Dev Kit | Coprocessor | 4-core CPU, 4GB RAM |
 | Jetson Nano Dev Kit | Drone processing | 4-core CPU, 4GB RAM |
 
 ### Sensors & Actuators
@@ -124,4 +124,5 @@ See [Drive Hardware Setup](docs/drive_hardware_setup.md#troubleshooting) for dia
 ## License
 
 See [LICENSE](LICENSE) file for details.
+
 
