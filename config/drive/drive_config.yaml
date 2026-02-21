@@ -77,10 +77,6 @@ drive:
     acceleration: 0.1     # Speed change per update cycle
     deadzone: 0.05        # Joystick deadzone threshold
     timeout: 1.0          # Command timeout in seconds
-
-    # input control options
-    control_scheme: "joystick"   # "joystick" or "keyboard"
-    keyboard_step: 0.1            # amount keyboard input changes per keypress (0-1 range)
     
     # Motor speed distribution when using differential drive
     # Allows independent control of front/middle vs back motor speeds

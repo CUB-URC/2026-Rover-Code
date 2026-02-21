@@ -7,15 +7,13 @@
 #include <thread>
 #include <chrono>
 #include <termios.h>
-#include <ament_index_cpp/get_package_share_directory.hpp>
-#include <yaml-cpp/yaml.h>
 
 /**
- * @file drive_input_node.cpp
- * @brief General input node for rover drive control
+ * @file xbox_controller_node.cpp
+ * @brief Xbox controller input node for rover drive control
  * 
- * Supports Xbox controller via Linux joystick interface (/dev/input/jsX) or
- * keyboard WASD input.  Publishes geometry_msgs/Twist commands to /drive/cmd_vel
+ * Reads from Xbox controller via Linux joystick interface (/dev/input/jsX)
+ * and publishes geometry_msgs/Twist commands to /drive/cmd_vel
  * 
  * Joystick Axis Mapping (Xbox Controller):
  * - Axis 1: Left stick Y (forward/backward) - 0=forward, 1=backward
@@ -38,31 +36,25 @@
  * - Button 9: Right stick press
  * 
  * Usage:
- * 1. Connect Xbox controller via USB (if using joystick)
+ * 1. Connect Xbox controller via USB
  * 2. Find device: ls /dev/input/js*
- * 3. Run: ros2 run drive drive_input_node --ros-args -p device:=/dev/input/js0
+ * 3. Run: ros2 run drive xbox_controller_node --ros-args -p device:=/dev/input/js0
  * 4. In another terminal: ros2 topic echo /drive/cmd_vel
  */
 
-class DriveInputNode : public rclcpp::Node
+class XboxControllerNode : public rclcpp::Node
 {
 public:
-    DriveInputNode() : Node("drive_input")
+    XboxControllerNode() : Node("xbox_controller")
     {
-        // load defaults from YAML config if available
-        bool yaml_ok = load_config();
-        if (!yaml_ok) {
-            RCLCPP_WARN(this->get_logger(), "Could not read drive_config.yaml, using hardcoded defaults");
-        }
-
-        // Declare parameters (defaults may come from YAML)
+        // Declare parameters
         this->declare_parameter<std::string>("device", "/dev/input/js0");
         this->declare_parameter<float>("max_linear_speed", 1.0f);
         this->declare_parameter<float>("max_angular_speed", 1.0f);
         this->declare_parameter<float>("deadzone", 0.1f);
         // keyboard control parameters
-        this->declare_parameter<bool>("use_keyboard", control_scheme_ == "keyboard");
-        this->declare_parameter<float>("keyboard_step", keyboard_step_);
+        this->declare_parameter<bool>("use_keyboard", false);
+        this->declare_parameter<float>("keyboard_step", 0.1f);
         
         // Get parameters
         device_path_ = this->get_parameter("device").as_string();
@@ -78,7 +70,7 @@ public:
         if (use_keyboard_) {
             RCLCPP_INFO(this->get_logger(), "Starting keyboard control mode (WASD)");
             // start keyboard thread
-            keyboard_thread_ = std::thread(&DriveInputNode::read_keyboard, this);
+            keyboard_thread_ = std::thread(&XboxControllerNode::read_keyboard, this);
         } else {
             // Initialize joystick
             if (!init_joystick()) {
@@ -87,16 +79,16 @@ public:
                 return;
             }
             // Start joystick reading thread
-            joystick_thread_ = std::thread(&DriveInputNode::read_joystick, this);
+            joystick_thread_ = std::thread(&XboxControllerNode::read_joystick, this);
             RCLCPP_INFO(this->get_logger(), 
-                "Drive input node initialized on device: %s", device_path_.c_str());
+                "Xbox controller node initialized on device: %s", device_path_.c_str());
         }
         RCLCPP_INFO(this->get_logger(), 
             "Max linear speed: %.2f, Max angular speed: %.2f, Deadzone: %.2f",
             max_linear_speed_, max_angular_speed_, deadzone_);
     }
     
-    ~DriveInputNode()
+    ~XboxControllerNode()
     {
         if (fd_ >= 0) {
             close(fd_);
@@ -117,7 +109,6 @@ private:
     float deadzone_;
     bool use_keyboard_{false};
     float keyboard_step_{0.1f};
-    std::string control_scheme_{"joystick"};
     
     // joystick state
     float left_stick_x_{0.0f};
@@ -130,27 +121,6 @@ private:
     std::thread joystick_thread_;
     std::thread keyboard_thread_;
     
-    bool load_config()
-    {
-        try {
-            std::string package_share_directory =
-                ament_index_cpp::get_package_share_directory("drive");
-            std::string config_file = package_share_directory + "/config/drive_config.yaml";
-            RCLCPP_INFO(this->get_logger(), "Loading input defaults from: %s", config_file.c_str());
-            YAML::Node cfg = YAML::LoadFile(config_file);
-            if (cfg["drive"]["command"]["control_scheme"]) {
-                control_scheme_ = cfg["drive"]["command"]["control_scheme"].as<std::string>();
-            }
-            if (cfg["drive"]["command"]["keyboard_step"]) {
-                keyboard_step_ = cfg["drive"]["command"]["keyboard_step"].as<float>();
-            }
-            return true;
-        } catch (const std::exception &e) {
-            RCLCPP_WARN(this->get_logger(), "Unable to load YAML: %s", e.what());
-            return false;
-        }
-    }
-
     bool init_joystick()
     {
         fd_ = open(device_path_.c_str(), O_RDONLY | O_NONBLOCK);
@@ -270,7 +240,7 @@ private:
 int main(int argc, char *argv[])
 {
     rclcpp::init(argc, argv);
-    rclcpp::spin(std::make_shared<DriveInputNode>());
+    rclcpp::spin(std::make_shared<XboxControllerNode>());
     rclcpp::shutdown();
     return 0;
 }
