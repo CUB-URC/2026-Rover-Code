@@ -39,7 +39,7 @@ class YoloNode(Node):
             self.get_logger().fatal("must install ultralytics - run: pip install ultralytics")
             raise ImportError("ultralytics not found")
         
-        if not self.mode_path:
+        if not self.model_path:
             self.get_logger().fatal("no model path set. pass via: --ros-args -p model_path:=/abs/path/model.onnx")
             raise ValueError("model_path is required")
         
