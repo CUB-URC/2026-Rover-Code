@@ -220,8 +220,16 @@ class ArucoNode(Node):
                         # 3.3-4 build the pose from tvec and quat from rotation matrix
                         pose, quat = self._build_pose(tvec, rvec)
                        
-                         # 3.5 draw axis on image
-                        cv2.drawFrameAxes(cv_image, self.intrinsic_matrix, self.distortion_coeffs, rvec, tvec, marker_size * 0.5)
+                         # 3.5 draw axis on image + label
+                        cv2.drawFrameAxes(cv_image, self.intrinsic_matrix, self.distortion_coeffs, rvec, tvec, marker_size * 0.5)   
+
+                        cv2.putText(
+                            cv_image,
+                            f"ID:{marker_id} ({self.marker_missions.get(marker_id, 'unknown')})",
+                            (int(corner[0][0][0]), int(corner[0][0][1]) - 10),
+                            cv2.FONT_HERSHEY_SIMPLEX,
+                            0.5, (255, 0, 0), 2
+                        )
 
                         pose_array.poses.append(pose)
                         self._broadcast_marker_tf(marker_id, pose, quat, msg.header.stamp)
