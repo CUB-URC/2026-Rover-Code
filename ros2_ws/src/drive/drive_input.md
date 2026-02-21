@@ -1,10 +1,10 @@
-# Xbox Controller Input Guide
+# Drive Input Guide
 
-Use an Xbox controller connected via USB to drive the rover.
+This document covers both Xbox controller and keyboard (WASD) control schemes for driving the rover.
 
 ## Hardware Setup
 
-1. **Connect Xbox controller** to your machine (or rover via USB hub)
+1. **Connect input device** to your machine (e.g. Xbox controller via USB) or just use keyboard
 2. **Verify it's detected**:
    ```bash
    ls /dev/input/js*
@@ -17,7 +17,7 @@ Use an Xbox controller connected via USB to drive the rover.
    # Log out and back in for changes to take effect
    ```
 
-## Running the Xbox Controller Node
+## Running the Drive Input Node
 
 ### In Development (with simulation)
 
@@ -28,10 +28,10 @@ source install/setup.bash
 ros2 run drive drive_controller_sim
 ```
 
-Terminal 2 - Start the Xbox controller:
+Terminal 2 - Start the drive input node:
 ```bash
 source install/setup.bash
-ros2 run drive xbox_controller_node --ros-args -p device:=/dev/input/js0
+ros2 run drive drive_input_node --ros-args -p device:=/dev/input/js0
 ```
 
 Terminal 3 - Monitor the motor status:
@@ -54,10 +54,10 @@ source install/setup.bash
 sudo ros2 run drive drive_controller_node
 ```
 
-Terminal 2 - Start the Xbox controller:
+Terminal 2 - Start the drive input node:
 ```bash
 source install/setup.bash
-ros2 run drive xbox_controller_node --ros-args -p device:=/dev/input/js0
+ros2 run drive drive_input_node --ros-args -p device:=/dev/input/js0
 ```
 
 ## Control Mapping
@@ -73,7 +73,7 @@ ros2 run drive xbox_controller_node --ros-args -p device:=/dev/input/js0
 Customize behavior with ROS2 parameters:
 
 ```bash
-ros2 run drive xbox_controller_node \
+ros2 run drive drive_input_node \
   --ros-args \
   -p device:=/dev/input/js0 \
   -p max_linear_speed:=1.0 \
@@ -87,6 +87,27 @@ ros2 run drive xbox_controller_node \
 | `max_linear_speed` | `1.0` | Max forward/backward speed (0.0-1.0) |
 | `max_angular_speed` | `1.0` | Max rotation speed (0.0-1.0) |
 | `deadzone` | `0.1` | Stick deadzone threshold |
+| `use_keyboard` | `false` | Enable reading WASD from keyboard instead of joystick (also configurable in `drive_config.yaml` via `drive.command.control_scheme`) |
+| `keyboard_step` | `0.1` | Amount to change input per keypress (0-1 range). Default comes from `drive_config.yaml` `drive.command.keyboard_step` |
+
+## Keyboard Alternative (WASD)
+
+The node can also accept simple keyboard input.  Set `use_keyboard` to `true` and run from a terminal with focus:
+
+```bash
+ros2 run drive drive_input_node \
+  --ros-args \
+  -p use_keyboard:=true \
+  -p keyboard_step:=0.1   # optional, smaller step gives finer control
+```
+
+Controls while the terminal is active:
+
+* `W` / `S` – increase/decrease forward speed
+* `A` / `D` – steer left/right
+* `SPACE` – stop (zero linear and angular)
+
+Values are clamped between -1 and 1 and then scaled by the `max_*_speed` parameters.
 
 ## Button Mapping (for reference)
 
@@ -124,7 +145,7 @@ sudo reboot
 ```
 
 ### Controller detected but no response
-1. Check the device parameter matches: `ros2 run drive xbox_controller_node --ros-args -p device:=/dev/input/js0`
+1. Check the device parameter matches: `ros2 run drive drive_input_node --ros-args -p device:=/dev/input/js0`
 2. Verify commands are being published: `ros2 topic echo /drive/cmd_vel`
 3. Check if the drive controller is listening: `ros2 topic list | grep cmd_vel`
 
@@ -135,7 +156,7 @@ sudo reboot
 
 ## Advanced: Custom Button Actions
 
-To add custom button functionality (e.g., emergency stop), edit `xbox_controller_node.cpp`:
+To add custom button functionality (e.g., emergency stop), edit `drive_input_node.cpp`:
 
 ```cpp
 else if (event.type & JS_EVENT_BUTTON) {

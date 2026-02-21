@@ -42,15 +42,18 @@ ament_target_dependencies(drive_test_node
   geometry_msgs
 )
 
-# Add Xbox controller executable
-add_executable(xbox_controller_node src/xbox_controller_node.cpp)
-ament_target_dependencies(xbox_controller_node
+# Add drive input executable (supports joystick or keyboard)
+add_executable(drive_input_node src/drive_input_node.cpp)
+ament_target_dependencies(drive_input_node
   rclcpp
   geometry_msgs
+  ament_index_cpp
+  yaml-cpp
 )
+target_link_libraries(drive_input_node yaml-cpp)
 
 # Install targets
-install(TARGETS drive_controller_node drive_controller_sim drive_test_node xbox_controller_node
+install(TARGETS drive_controller_node drive_controller_sim drive_test_node drive_input_node
   DESTINATION lib/${PROJECT_NAME}
 )
 
