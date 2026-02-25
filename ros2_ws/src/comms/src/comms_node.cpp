@@ -27,6 +27,12 @@ float byte_to_float(uint8_t value) { return (static_cast<float>(value) / 254.0F)
 
 class PacketParser {
   public:
+    void reset() {
+        state_ = 0;
+        tmp_var1_byte_ = 0;
+        tmp_var2_byte_ = 0;
+    }
+
     bool parse_byte(uint8_t byte, uint8_t &var1_byte, uint8_t &var2_byte) {
         switch (state_) {
         case 0:
@@ -144,6 +150,7 @@ class CommsNode : public rclcpp::Node {
     }
 
     void close_serial_port() {
+        parser_.reset();
         if (serial_fd_ >= 0) {
             ::close(serial_fd_);
             serial_fd_ = -1;
@@ -163,6 +170,7 @@ class CommsNode : public rclcpp::Node {
         last_connect_attempt_ = now;
         serial_fd_ = open_serial_port(serial_device_);
         if (serial_fd_ >= 0) {
+            parser_.reset();
             RCLCPP_INFO(this->get_logger(), "Connected to serial device %s @ %d baud.", serial_device_.c_str(), kSerialBaudRate);
         }
     }
