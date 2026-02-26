@@ -1,0 +1,177 @@
+# ===== ROVER LOCALIZATION CONFIG =====
+# setup for dual ekf + navsat_transform for outdoors gps navigation.
+# used when use_gps:=true in bringup file
+
+# -- LOCAL EKF --
+# local continuous odometry bia ZED VIO velocities + ZED IMU yaw
+# no GPS
+
+ekf_filter_node_local:
+  ros__parameters:
+    frequency: 30.0
+    two_d_mode: true # 2d costmap => zero z/roll/pitch
+    publish_tf: true
+    map_frame: map
+    odom_frame: odom
+    base_link_frame: base_link
+    world_frame: odom # local EKF lives in odom frame
+
+    # ZED /odom — use velocities only (indices 6-8, 11) so the local frame stays continuous
+    odom0: /zed/zed_node/odom
+    odom0_config:
+      [
+        false,
+        false,
+        false, # x y z position  — don't fuse absolute position
+        false,
+        false,
+        false, # roll pitch yaw
+        true,
+        true,
+        false, # vx vy vz         — fuse forward/lateral velocity
+        false,
+        false,
+        true, # vroll vpitch vyaw — fuse yaw rate
+        false,
+        false,
+        false
+      ] # ax ay az
+    odom0_differential: false
+    odom0_relative: false
+    odom0_queue_size: 10
+
+    # ZED IMU — heading only
+    imu0: /zed/zed_node/imu/data
+    imu0_config:
+      [
+        false,
+        false,
+        false, # x y z
+        false,
+        false,
+        true, # roll pitch yaw    — fuse absolute yaw
+        false,
+        false,
+        false, # vx vy vz
+        false,
+        false,
+        false, # vroll vpitch vyaw
+        false,
+        false,
+        false
+      ] # ax ay az
+    imu0_differential: false
+    imu0_relative: false # ZED IMU gives absolute heading (ENU)
+    imu0_remove_gravitational_acceleration: true
+    imu0_queue_size: 10
+
+    process_noise_covariance: [ 0.05, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.05, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.06, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.03, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.03, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.06, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.025, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.025, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.04, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.02, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.015 ]
+
+# -- GLOBAL EKF --
+# map -> base_link
+# estimate global position by fusing GPS (cartesian odom from navsat TF) + ZED VIO + IMU
+
+ekf_filter_node_global:
+  ros__parameters:
+    frequency: 30.0
+    two_d_mode: true
+    publish_tf: true
+    map_frame: map
+    odom_frame: odom
+    base_link_frame: base_link
+    world_frame: map # global EKF lives in map frame
+
+    # GPS-derived cartesian odometry from navsat_transform (absolute position)
+    odom0: /odometry/gps
+    odom0_config:
+      [
+        true,
+        true,
+        false, # x y — fuse GPS position
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    odom0_differential: false
+    odom0_relative: false
+    odom0_queue_size: 10
+
+    # ZED VIO — velocities
+    odom1: /zed/zed_node/odom
+    odom1_config:
+      [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        true,
+        false, # vx vy
+        false,
+        false,
+        true, # vyaw
+        false,
+        false,
+        false
+      ]
+    odom1_differential: false
+    odom1_relative: false
+    odom1_queue_size: 10
+
+    # ZED IMU — heading
+    imu0: /zed/zed_node/imu/data
+    imu0_config:
+      [
+        false,
+        false,
+        false,
+        false,
+        false,
+        true, # yaw
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    imu0_differential: false
+    imu0_relative: false
+    imu0_remove_gravitational_acceleration: true
+    imu0_queue_size: 10
+
+    # tune process noise cov to build GPS trust (and to increase overall speed)
+    process_noise_covariance: [ 0.05, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.05, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.06, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.03, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.03, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.06, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.025, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.025, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.04, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.02, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.015 ]
+
+# -- NAVSAT TRANSFORM --
+# GPS NavSatFix => Cartesian odom 
+# auto-sets datum on statup from first GPS fix
+# hardcode datum if u wanna use pre=mapped routes / repeatable coords (lat,lon,yaw)
+
+navsat_transform:
+  ros__parameters:
+    frequency: 10.0 # [Hz] match your GPS update rate
+    delay: 3.0 # [s] wait for EKF to converge before fusing GPS
+    magnetic_declination_radians: 0.19 # TODO: adjust for curr location
+    yaw_offset: 0.0 # compensate IMU heading offset from east (ENU)
+    zero_altitude: true # flatten to 2D (match costmap)
+    broadcast_cartesian_transform: true
+    publish_filtered_gps: true
+    use_odometry_yaw: false # use IMU yaw, not GPS-derived yaw
+    wait_for_datum: false # auto-init datum from first GPS fix
+    # datum: [40.0076, -105.2659, 0.0]  # TODO: adjust for curr location if not using auto-init or comment if using auto-init
+
