@@ -17,8 +17,39 @@ footprint: "[[0.512, 0.580], [0.512, -0.580], [-0.512, -0.580], [-0.512, 0.580]]
 
 bt_navigator:
   ros__parameters:
-    # TODO ?
+    use_sim_time: false
+    global_frame: map
+    robot_base_frame: base_link
+    odom_topic: /zed/zed_node/odom
+    bt_loop_duration: 10 # [ms] BT tick rate
+    default_server_timeout: 20 # [s] 
 
+    navigate_to_pose:
+      # for single GNSS waypoint
+      plugin: "nav2_bt_navigator::NavigateToPoseNavigator"
+    navigate_through_poses:
+      # for search pattern 
+      plugin: "nav2_bt_navigator::NavigateThroughPosesNavigator"
+
+    plugin_lib_names:
+    - nav2_compute_path_to_pose_action_bt_node
+    - nav2_compute_path_through_poses_action_bt_node
+    - nav2_follow_path_action_bt_node
+    - nav2_back_up_action_bt_node
+    - nav2_spin_action_bt_node
+    - nav2_wait_action_bt_node
+    - nav2_clear_costmap_service_bt_node
+    - nav2_is_stuck_condition_bt_node
+    - nav2_goal_reached_condition_bt_node
+    - nav2_goal_updated_condition_bt_node
+    - nav2_recovery_node_bt_node
+    - nav2_pipeline_sequence_bt_node
+    - nav2_round_robin_node_bt_node
+    - nav2_rate_controller_bt_node
+    - nav2_distance_controller_bt_node
+    - nav2_speed_controller_bt_node
+    - nav2_navigate_to_pose_action_bt_node
+    - nav2_navigate_through_poses_action_bt_node
 
 controller_server:
   ros__parameters:
@@ -183,12 +214,12 @@ velocity_smoother:
     max_accel: [ 0.3, 0.0, 2.0 ]
     max_decel: [ -0.5, 0.0, -2 ]
 
-    odom_topic: "odom"
+    odom_topic: "/zed/zed_node/odom"
     odom_duration: 0.2 # [s] - buffer time
     deadband_velocity: [ 0.0, 0.0, 0.0 ]
     velocity_timeout: 1.0
 
-collision_smoother:
+collision_monitor:
   ros__parameters:
     use_sim_time: false
 
@@ -315,4 +346,4 @@ lifecycle_manager_navigation:
   ros__parameters:
     use_sim_time: false
     autostart: true
-    node_names: [ 'controller_server', 'planner_server', 'behavior_server', 'waypoint_follower', 'velocity_smoother', 'collision_monitor' ]
+    node_names: [ 'bt_navigator', 'controller_server', 'planner_server', 'behavior_server', 'waypoint_follower', 'velocity_smoother', 'collision_monitor' ]
