@@ -25,27 +25,27 @@ class YoloNode(Node):
         self.bridge = CvBridge() # convert ROS img <-> CV format
 
         self._setup_parameters()
-        self._load_model()
         self._setup_subscriptions()
         self._setup_publishers()
+        self._load_model()
     
     def _setup_parameters(self):
-        self.model_path = self.declare_parameter("model_path", "").get_parameter_value().string_value
+        self.model_path = os.path.expanduser(self.declare_parameter("model_path", "").get_parameter_value().string_value)
         self.confidence_threshold = self.declare_parameter("confidence_threshold", 0.5).get_parameter_value().double_value
         self.class_names = self.declare_parameter("class_names", ["hammer", "mallet", "bottle"]).get_parameter_value().string_array_value
 
     def _load_model(self):
         if not ULTRALYTICS_AVAILABLE:
-            self.get_logger().fatal("must install ultralytics - run: pip install ultralytics")
-            raise ImportError("ultralytics not found")
+            self.get_logger().warn("ultralytics not installed — YOLO inference disabled. run: pip install ultralytics")
+            return
         
         if not self.model_path:
-            self.get_logger().fatal("no model path set. pass via: --ros-args -p model_path:=/abs/path/model.onnx")
-            raise ValueError("model_path is required")
+            self.get_logger().warn("no model_path set — YOLO inference disabled. pass via: -p model_path:=/abs/path/model.onnx")
+            return
         
         if not os.path.exists(self.model_path):
-            self.get_logger().fatal(f"model file does not exist: {self.model_path}")
-            raise FileNotFoundError(f"model file not found: {self.model_path}")
+            self.get_logger().warn(f"model file not found: {self.model_path} — YOLO inference disabled")
+            return
         
         self.model = YOLO(self.model_path)
         self.get_logger().info(f"YOLO model loaded from: {self.model_path}")
@@ -88,7 +88,10 @@ class YoloNode(Node):
         try:
             cv_image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
 
-            # 1. run inference on model
+            # 1. run inference on model (passthrough debug image if no model loaded)
+            if self.model is None:
+                self.debug_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, "bgr8"))
+                return
             results = self.model(cv_image, conf=self.confidence_threshold, verbose=False)
             res = results[0]
 

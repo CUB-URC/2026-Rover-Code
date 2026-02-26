@@ -25,7 +25,7 @@ class ArucoNode(Node):
         self.aruco_dict = None
         self.aruco_params = None
         self.aruco_detector = None  # ArucoDetector object (OpenCV 4.7+)
-        # todo: latest depth // if using depth refinement
+        self.latest_depth = None   # set by depth_callback when ZED depth is available
 
         # --- SETUP ---
         self.bridge = CvBridge()
@@ -222,8 +222,6 @@ class ArucoNode(Node):
 
 
                         cx, cy = int(img_points[:, 0].mean()), int(img_points[:, 1].mean())
-                        roi = self.latest_depth[cx-1:cx+2, cy-1:cy+2] # sample to mitigate noise
-                        depth = float(np.nanmedian(roi))
 
                         _, rvec, tvec = cv2.solvePnP(
                             obj_points, img_points,
@@ -233,32 +231,24 @@ class ArucoNode(Node):
                         rvec = rvec.reshape(1, 1, 3)
                         tvec = tvec.reshape(1, 1, 3)
 
-                        # todo: integrate depth
-
-                        fx, fy = self.intrinsic_matrix[0, 0], self.intrinsic_matrix[1, 1]
-                        cx_k, cy_k = self.intrinsic_matrix[0, 2], self.intrinsic_matrix[1, 2]
-
-                        X = (cx - cx_k) * depth / fx
-                        Y = (cy - cy_k) * depth / fy
-                        Z = depth
-
-                        # 3.3-4 build the pose from tvec and quat from rotation matrix
-                        # pose, quat = self._build_pose(tvec, rvec)
-
-                        coords = [X,Y,Z]
-
-                        if self.latest_depth is None:
-                            self.get_logger().warn("No depth data available. Falling back to tvec translation for pose estimation.")
-                            coords = tvec
-
-                        if np.isnane(depth) or depth <= 0.0:
-                            self.get_logger().warn(
-                                f"Invalid depth reading for marker {marker_id} at pixel ({cx}, {cy}). "
-                                "Falling back to tvec translation for pose estimation. "
-                                "Check that the ZED is properly calibrated and that the marker is within range.",
-                                throttle_duration_sec=5.0
-                            )
-                            coords = tvec
+                        # use ZED depth to refine XYZ if available, otherwise fall back to solvePnP tvec
+                        coords = tvec
+                        if self.latest_depth is not None:
+                            roi = self.latest_depth[cy-1:cy+2, cx-1:cx+2]  # (row=y, col=x)
+                            depth = float(np.nanmedian(roi))
+                            if np.isnan(depth) or depth <= 0.0:
+                                self.get_logger().warn(
+                                    f"Invalid depth for marker {marker_id} at ({cx},{cy}) — using solvePnP tvec.",
+                                    throttle_duration_sec=5.0
+                                )
+                            else:
+                                fx = self.intrinsic_matrix[0, 0]
+                                fy = self.intrinsic_matrix[1, 1]
+                                cx_k = self.intrinsic_matrix[0, 2]
+                                cy_k = self.intrinsic_matrix[1, 2]
+                                X = (cx - cx_k) * depth / fx
+                                Y = (cy - cy_k) * depth / fy
+                                coords = np.array([[[X, Y, depth]]], dtype=np.float32)
 
                         pose, quat = self._build_pose(coords, rvec)
                        
