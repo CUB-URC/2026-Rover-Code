@@ -1,0 +1,361 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36" version="29.5.4">
+  <diagram id="mZgJCwrQ2REmhDJrbQFg" name="Page-1">
+    <mxGraphModel dx="923" dy="819" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="nav2_bg" parent="1" style="swimlane;startSize=24;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=10;" value="NAV2 STACK" vertex="1">
+          <mxGeometry height="210" width="880" x="240" y="420" as="geometry" />
+        </mxCell>
+        <mxCell id="planner" parent="nav2_bg" style="rounded=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="planner_server&#xa;(NavfnPlanner (A*))" vertex="1">
+          <mxGeometry height="60" width="130" x="180" y="36" as="geometry" />
+        </mxCell>
+        <mxCell id="controller" parent="nav2_bg" style="rounded=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="controller_server&#xa;(RegulatedPurePursuit)" vertex="1">
+          <mxGeometry height="60" width="130" x="330" y="36" as="geometry" />
+        </mxCell>
+        <mxCell id="behaviors" parent="nav2_bg" style="rounded=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="behavior_server&#xa;(spin, backup, wait)" vertex="1">
+          <mxGeometry height="60" width="120" x="480" y="36" as="geometry" />
+        </mxCell>
+        <mxCell id="wp_follower" parent="nav2_bg" style="rounded=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="waypoint_follower" vertex="1">
+          <mxGeometry height="60" width="120" x="620" y="36" as="geometry" />
+        </mxCell>
+        <mxCell id="collision_mon" parent="nav2_bg" style="rounded=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="collision_monitor&#xa;(hard stop safety)" vertex="1">
+          <mxGeometry height="60" width="100" x="760" y="36" as="geometry" />
+        </mxCell>
+        <mxCell id="local_cm" parent="nav2_bg" style="rounded=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=9;" value="local_costmap&#xa;ZED PointCloud2 → ObstacleLayer&#xa;InflationLayer   rolling 8m×8m" vertex="1">
+          <mxGeometry height="52" width="220" x="20" y="118" as="geometry" />
+        </mxCell>
+        <mxCell id="global_cm" parent="nav2_bg" style="rounded=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=9;" value="global_costmap&#xa;ZED PointCloud2 → ObstacleLayer&#xa;InflationLayer   allow_unknown" vertex="1">
+          <mxGeometry height="52" width="220" x="260" y="118" as="geometry" />
+        </mxCell>
+        <mxCell id="vel_smoother" parent="nav2_bg" style="rounded=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=9;" value="velocity_smoother" vertex="1">
+          <mxGeometry height="34" width="120" x="500" y="128" as="geometry" />
+        </mxCell>
+        <mxCell id="bt_nav" parent="nav2_bg" style="rounded=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="bt_navigator&#xa;(NavigateToPose,&#xa;NavigateThroughPoses)" vertex="1">
+          <mxGeometry height="60" width="140" x="20" y="36" as="geometry" />
+        </mxCell>
+        <mxCell id="e_zed_costmap" edge="1" parent="1" source="zed_node" style="edgeStyle=orthogonalEdgeStyle;fontSize=8;fillColor=#d5e8d4;strokeColor=#82b366;labelBorderColor=#97D077;" target="local_cm" value="/zed/.../point_cloud&#xa;PointCloud2">
+          <mxGeometry relative="1" x="0.0553" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="330" y="400" />
+              <mxPoint x="410" y="400" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="loc_bg" parent="1" style="swimlane;startSize=24;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=9;labelBackgroundColor=#D5E8D4;" value="LOCALIZATION  (robot_localization)" vertex="1">
+          <mxGeometry height="120" width="500" x="240" y="260" as="geometry" />
+        </mxCell>
+        <mxCell id="ekf_local" parent="loc_bg" style="rounded=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="ekf_filter_node_local&#xa;(odom → base_link)" vertex="1">
+          <mxGeometry height="50" width="130" x="200" y="36" as="geometry" />
+        </mxCell>
+        <mxCell id="ekf_global" parent="loc_bg" style="rounded=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="ekf_filter_node_global&#xa;(map → odom (GPS))" vertex="1">
+          <mxGeometry height="50" width="130" x="350" y="36" as="geometry" />
+        </mxCell>
+        <mxCell id="navsat" parent="loc_bg" style="rounded=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="navsat_transform_node&#xa;(WGS84 → cartesian)" vertex="1">
+          <mxGeometry height="50" width="160" x="20" y="36" as="geometry" />
+        </mxCell>
+        <mxCell id="e_zed_aruco" edge="1" parent="1" source="zed_node" style="edgeStyle=orthogonalEdgeStyle;fontSize=8;fillColor=#dae8fc;strokeColor=#6c8ebf;labelBorderColor=#7EA6E0;" target="aruco" value="/zed/.../image&#xa;camera_info">
+          <mxGeometry relative="1" x="-0.105" y="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_aruco_nav" edge="1" parent="1" source="aruco" style="edgeStyle=orthogonalEdgeStyle;fontSize=8;fillColor=#d5e8d4;strokeColor=#82b366;dashed=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;labelBorderColor=#97D077;" target="bt_nav" value="mission/nav_post_pose">
+          <mxGeometry relative="1" x="-0.5587" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="1020" y="250" />
+              <mxPoint x="250" y="250" />
+              <mxPoint x="250" y="486" />
+            </Array>
+            <mxPoint x="280" y="455" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_nav2_drive" edge="1" parent="1" source="controller" style="edgeStyle=orthogonalEdgeStyle;fontSize=8;fillColor=#fff2cc;strokeColor=#d6b656;labelBorderColor=#FFD966;" target="drive_ctrl" value="/drive/cmd_vel&#xa;(Twist)">
+          <mxGeometry relative="1" x="-0.0888" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="635" y="530" />
+              <mxPoint x="1410" y="530" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="tools_bg" parent="1" style="swimlane;startSize=24;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;fontSize=10;" value="OPERATOR TOOLS" vertex="1">
+          <mxGeometry height="100" width="460" x="1140" y="570" as="geometry" />
+        </mxCell>
+        <mxCell id="rviz" parent="tools_bg" style="rounded=1;fillColor=#e1d5e7;strokeColor=#9673a6;" value="RViz2&#xa;costmaps, TF, path, debug imgs" vertex="1">
+          <mxGeometry height="40" width="180" x="40" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="rqt_img" parent="tools_bg" style="rounded=1;fillColor=#e1d5e7;strokeColor=#9673a6;" value="rqt_image_view&#xa;aruco_debug, yolo_debug" vertex="1">
+          <mxGeometry height="40" width="180" x="240" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="drive_bg" parent="1" style="swimlane;startSize=24;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;fontSize=10;" value="DRIVE" vertex="1">
+          <mxGeometry height="130" width="460" x="1140" y="420" as="geometry" />
+        </mxCell>
+        <mxCell id="xbox_node" parent="drive_bg" style="rounded=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="xbox_controller_node&#xa;/dev/input/js0 → Twist" vertex="1">
+          <mxGeometry height="54" width="160" x="20" y="38" as="geometry" />
+        </mxCell>
+        <mxCell id="drive_ctrl" parent="drive_bg" style="rounded=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="drive_controller&#xa;Twist → PWM sysfs" vertex="1">
+          <mxGeometry height="54" width="140" x="200" y="42" as="geometry" />
+        </mxCell>
+        <mxCell id="drive_topic_note" parent="drive_bg" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=9;fontStyle=2;" value="Xbox OR comms_drive_bridge → /drive/cmd_vel → drive_controller" vertex="1">
+          <mxGeometry height="20" width="420" x="20" y="110" as="geometry" />
+        </mxCell>
+        <mxCell id="e_rqt_aruco" edge="1" parent="1" source="aruco" style="edgeStyle=orthogonalEdgeStyle;fontSize=8;dashed=1;fillColor=#e1d5e7;strokeColor=#9673a6;labelBorderColor=#A680B8;" target="rqt_img" value="perception/aruco_debug">
+          <mxGeometry relative="1" x="0.3203" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="1410" y="197" />
+              <mxPoint x="1410" y="350" />
+              <mxPoint x="1540" y="350" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_rqt_yolo" edge="1" parent="1" source="yolo_subs" style="edgeStyle=orthogonalEdgeStyle;fontSize=8;dashed=1;fillColor=#e1d5e7;strokeColor=#9673a6;labelBorderColor=#A680B8;" target="rqt_img" value="perception/yolo_debug">
+          <mxGeometry relative="1" x="-0.0251" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="1290" y="301" />
+              <mxPoint x="1290" y="370" />
+              <mxPoint x="1510" y="370" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="legend_bg" parent="1" style="rounded=1;whiteSpace=wrap;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;" value="" vertex="1">
+          <mxGeometry height="250" width="160" x="30" y="20" as="geometry" />
+        </mxCell>
+        <mxCell id="legend_title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontStyle=1;fontSize=11;" value="LEGEND" vertex="1">
+          <mxGeometry height="24" width="200" x="10" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="leg1" parent="1" style="rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;" value="Perception" vertex="1">
+          <mxGeometry height="28" width="135" x="41.25" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="leg2" parent="1" style="rounded=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;" value="Autonomy" vertex="1">
+          <mxGeometry height="26" width="135" x="41.25" y="84" as="geometry" />
+        </mxCell>
+        <mxCell id="leg3" parent="1" style="rounded=1;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;" value="Drive" vertex="1">
+          <mxGeometry height="24" width="135" x="41.25" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="leg4" parent="1" style="rounded=1;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;" value="Hardware" vertex="1">
+          <mxGeometry height="22" width="135" x="41.25" y="152" as="geometry" />
+        </mxCell>
+        <mxCell id="leg5" parent="1" style="rounded=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;" value="Operator Tools" vertex="1">
+          <mxGeometry height="30" width="137.5" x="41.25" y="184" as="geometry" />
+        </mxCell>
+        <mxCell id="hw_bg" parent="1" style="swimlane;startSize=24;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;fontSize=10;" value="HARDWARE" vertex="1">
+          <mxGeometry height="100" width="1360" x="240" y="20" as="geometry" />
+        </mxCell>
+        <mxCell id="zed" parent="hw_bg" style="rounded=1;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;" value="ZED 2i Camera" vertex="1">
+          <mxGeometry height="44" width="140" x="20" y="36" as="geometry" />
+        </mxCell>
+        <mxCell id="gps" parent="hw_bg" style="rounded=1;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;" value="GPS" vertex="1">
+          <mxGeometry height="44" width="140" x="180" y="36" as="geometry" />
+        </mxCell>
+        <mxCell id="xbox" parent="hw_bg" style="rounded=1;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;" value="Xbox Controller&#xa;(/dev/input/js0)" vertex="1">
+          <mxGeometry height="44" width="140" x="340" y="36" as="geometry" />
+        </mxCell>
+        <mxCell id="motors" parent="hw_bg" style="rounded=1;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;" value="Drive Motors&#xa;(PWM — sysfs)" vertex="1">
+          <mxGeometry height="44" width="140" x="500" y="36" as="geometry" />
+        </mxCell>
+        <mxCell id="jetson" parent="hw_bg" style="rounded=1;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;" value="Jetson Orin Nano" vertex="1">
+          <mxGeometry height="44" width="140" x="660" y="36" as="geometry" />
+        </mxCell>
+        <mxCell id="basestation" parent="hw_bg" style="rounded=1;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;" value="Base Station&#xa;(Operator Laptop)" vertex="1">
+          <mxGeometry height="44" width="140" x="820" y="36" as="geometry" />
+        </mxCell>
+        <mxCell id="radio_hw" parent="hw_bg" style="rounded=1;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;" value="Radio Modem&#xa;(USB serial)" vertex="1">
+          <mxGeometry height="44" width="140" x="1030" y="36" as="geometry" />
+        </mxCell>
+        <mxCell id="zed_bg" parent="1" style="swimlane;startSize=24;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;fontSize=9;" value="ZED ROS2 WRAPPER" vertex="1">
+          <mxGeometry height="100" width="340" x="240" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="zed_node" parent="zed_bg" style="rounded=1;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;" value="zed_node" vertex="1">
+          <mxGeometry height="44" width="90" x="50" y="36" as="geometry" />
+        </mxCell>
+        <mxCell id="zed_pubs" parent="zed_bg" style="text;html=1;strokeColor=#F19C99;fillColor=default;align=center;verticalAlign=middle;fontSize=8;fontFamily=Helvetica;fontColor=default;" value="→ /zed/zed_node/rgb/.../image&#xa;→ /zed/zed_node/point_cloud/...&#xa;→ /zed/zed_node/odom&#xa;→ /zed/zed_node/imu/data&#xa;→ /zed/zed_node/.../camera_info" vertex="1">
+          <mxGeometry height="50" width="125" x="200" y="30" as="geometry" />
+        </mxCell>
+        <mxCell id="static_tf" parent="1" style="rounded=1;fillColor=#D5E8D4;strokeColor=#82b366;fontStyle=2;fontSize=9;dashed=1;" value="static_transform_publisher&#xa;map → odom (no-GPS mode)&#xa;base_link → zed_camera_link" vertex="1">
+          <mxGeometry height="60" width="140" x="760" y="290" as="geometry" />
+        </mxCell>
+        <mxCell id="perc_bg" parent="1" style="swimlane;startSize=24;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=10;" value="PERCEPTION" vertex="1">
+          <mxGeometry height="206" width="430" x="970" y="139" as="geometry" />
+        </mxCell>
+        <mxCell id="aruco" parent="perc_bg" style="rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;" value="aruco_node" vertex="1">
+          <mxGeometry height="44" width="80" x="10" y="36" as="geometry" />
+        </mxCell>
+        <mxCell id="aruco_subs" parent="perc_bg" style="text;html=1;align=left;verticalAlign=middle;fontSize=9;fillColor=default;strokeColor=#A9C4EB;" value="← /zed/.../rgb image&#xa;← /zed/.../camera_info" vertex="1">
+          <mxGeometry height="44" width="100" x="110" y="36" as="geometry" />
+        </mxCell>
+        <mxCell id="yolo" parent="perc_bg" style="rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;" value="yolo_node" vertex="1">
+          <mxGeometry height="44" width="80" x="10" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="yolo_pubs" parent="perc_bg" style="text;html=1;align=center;verticalAlign=middle;fontSize=8;rounded=1;fillColor=default;strokeColor=#A9C4EB;" value="→ perception/yolo_debug (Image)&#xa;→ perception/detections (Detection2DArray)&#xa;→ mission/object_detection (Detection2D)" vertex="1">
+          <mxGeometry height="50" width="180" x="220" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="aruco_pubs" parent="perc_bg" style="text;html=1;strokeColor=#A9C4EB;fillColor=default;align=center;verticalAlign=middle;fontSize=8;rounded=1;" value="→ perception/aruco_debug (Image)&#xa;→ perception/aruco_poses (PoseArray)&#xa;→ mission/nav_post_1_pose (PoseStamped)&#xa;→ mission/nav_post_2_pose (PoseStamped)&#xa;→ mission/start_gate_pose (PoseStamped)&#xa;→ mission/keyboard_pose (PoseStamped)&#xa;→ mission/usb_pose (PoseStamped)&#xa;→ TF: aruco_marker_ frames" vertex="1">
+          <mxGeometry height="102" width="190" x="220" y="28" as="geometry" />
+        </mxCell>
+        <mxCell id="yolo_subs" parent="perc_bg" style="text;html=1;strokeColor=#A9C4EB;fillColor=default;align=left;verticalAlign=middle;fontSize=9;" value="← /zed/.../rgb image" vertex="1">
+          <mxGeometry height="22" width="90" x="115" y="151" as="geometry" />
+        </mxCell>
+        <mxCell id="fCwbaXhVGtphTpzAnUXU-1" edge="1" parent="perc_bg" source="yolo" style="edgeStyle=orthogonalEdgeStyle;fontSize=8;dashed=1;fillColor=#e1d5e7;strokeColor=#9673a6;labelBorderColor=#A680B8;" target="yolo_subs" value="">
+          <mxGeometry relative="1" x="0.2607" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points" />
+            <mxPoint x="130" y="160" as="sourcePoint" />
+            <mxPoint x="520" y="470" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="auto_ctrl" parent="1" style="rounded=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;" value="autonomous_nav_controller&#xa;(BasicNavigator client)&#xa;(MODES: waypoint, search, demo)" vertex="1">
+          <mxGeometry height="64" width="240" x="240" y="660" as="geometry" />
+        </mxCell>
+        <mxCell id="auto_ctrl_pubs" parent="1" style="text;html=1;strokeColor=#B9E0A5;fillColor=default;align=center;verticalAlign=middle;fontSize=8;rounded=1;" value="→ /mission/nav_status (String)&#xa;→ NavigateToPose action&#xa;→ NavigateThroughPoses action&#xa;→ FollowGPSWaypoints action" vertex="1">
+          <mxGeometry height="64" width="140" x="500" y="660" as="geometry" />
+        </mxCell>
+        <mxCell id="tf_tree" parent="1" style="rounded=1;fillColor=default;strokeColor=#666;fontColor=#333;fontStyle=2;fontSize=9;dashed=1;" value="TF TREE (coordinate frame hierarchy)&#xa;map → odom → base_link → zed_camera_link&#xa;                              ↳ aruco_marker_&lt;id&gt; (dynamic, per detection)" vertex="1">
+          <mxGeometry height="70" width="440" x="680" y="654" as="geometry" />
+        </mxCell>
+        <mxCell id="e_zed_hw" edge="1" parent="1" source="zed" style="edgeStyle=orthogonalEdgeStyle;" target="zed_node">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="330" y="160" />
+              <mxPoint x="330" y="160" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_zed_rl" edge="1" parent="1" source="zed_node" style="edgeStyle=orthogonalEdgeStyle;fontSize=8;fillColor=#d5e8d4;strokeColor=#82b366;exitX=0.62;exitY=0.99;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.25;entryDx=0;entryDy=0;labelBorderColor=#97D077;" target="ekf_local" value="/odom + /imu/data">
+          <mxGeometry relative="1" x="-0.731" y="20" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="350" y="220" />
+              <mxPoint x="350" y="290" />
+              <mxPoint x="430" y="290" />
+              <mxPoint x="430" y="309" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_ekf_nav2" edge="1" parent="1" source="ekf_global" style="edgeStyle=orthogonalEdgeStyle;fontSize=8;fillColor=#d5e8d4;strokeColor=#82b366;labelBorderColor=#97D077;" target="bt_nav" value="map→odom TF">
+          <mxGeometry relative="1" x="0.237" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="680" y="370" />
+              <mxPoint x="300" y="370" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_ctrl_btn" edge="1" parent="1" source="auto_ctrl" style="edgeStyle=orthogonalEdgeStyle;fontSize=8;fillColor=#d5e8d4;strokeColor=#82b366;labelBorderColor=#97D077;entryX=0.157;entryY=0.983;entryDx=0;entryDy=0;entryPerimeter=0;" target="bt_nav" value="NavigateToPose ACTION&#xa;NavigateThroughPoses ACTION">
+          <mxGeometry relative="1" x="-0.791" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="360" y="610" />
+              <mxPoint x="250" y="610" />
+              <mxPoint x="250" y="530" />
+              <mxPoint x="282" y="530" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_xbox_drive" edge="1" parent="1" source="xbox_node" style="edgeStyle=orthogonalEdgeStyle;fontSize=8;fillColor=#fff2cc;strokeColor=#d6b656;labelBorderColor=#FFD966;" target="drive_ctrl" value="/drive/cmd_vel">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_drive_motors" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;fontSize=8;" target="motors" value="PWM">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1410" y="390" />
+              <mxPoint x="950" y="390" />
+              <mxPoint x="950" y="160" />
+              <mxPoint x="810" y="160" />
+            </Array>
+            <mxPoint x="1410" y="460" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_xboxhw" edge="1" parent="1" source="xbox" style="edgeStyle=orthogonalEdgeStyle;" target="xbox_node">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="650" y="180" />
+              <mxPoint x="930" y="180" />
+              <mxPoint x="930" y="400" />
+              <mxPoint x="1240" y="400" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_rviz" edge="1" parent="1" source="local_cm" style="edgeStyle=orthogonalEdgeStyle;fontSize=8;dashed=1;fillColor=#e1d5e7;strokeColor=#9673a6;labelBorderColor=#A680B8;" value="costmaps, TF, path">
+          <mxGeometry relative="1" x="0.1057" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="450" y="600" />
+              <mxPoint x="1030" y="600" />
+              <mxPoint x="1030" y="640" />
+            </Array>
+            <mxPoint x="1180" y="640" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_zed_yolo" edge="1" parent="1" source="zed_node" style="edgeStyle=orthogonalEdgeStyle;fontSize=8;fillColor=#dae8fc;strokeColor=#6c8ebf;labelBorderColor=#7EA6E0;exitX=0.891;exitY=0.99;exitDx=0;exitDy=0;exitPerimeter=0;" target="yolo" value="/zed/.../image">
+          <mxGeometry relative="1" x="-0.199" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="370" y="230" />
+              <mxPoint x="910" y="230" />
+              <mxPoint x="910" y="302" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_navsat_ekf" edge="1" parent="1" source="navsat" style="edgeStyle=orthogonalEdgeStyle;fontSize=8;fillColor=#d5e8d4;strokeColor=#82b366;labelBorderColor=#97D077;" target="ekf_global" value="/odometry/gps">
+          <mxGeometry relative="1" x="0.0974" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="430" y="321" />
+              <mxPoint x="430" y="360" />
+              <mxPoint x="640" y="360" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_gps_navsat" edge="1" parent="1" source="gps" style="edgeStyle=orthogonalEdgeStyle;fontSize=8;labelBorderColor=#000000;entryX=0.096;entryY=0.054;entryDx=0;entryDy=0;entryPerimeter=0;" target="navsat" value="/gps/fix">
+          <mxGeometry relative="1" x="-0.6578" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="490" y="110" />
+              <mxPoint x="275" y="110" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="comms_bg" parent="1" style="swimlane;startSize=24;fillColor=#FFE6CC;strokeColor=#d79b00;fontStyle=1;fontSize=10;" value="COMMS" vertex="1">
+          <mxGeometry height="184" width="180" x="1420" y="139" as="geometry" />
+        </mxCell>
+        <mxCell id="comms_node_cell" parent="comms_bg" style="rounded=1;fillColor=#FFE6CC;strokeColor=#d79b00;fontSize=9;" value="comms_node&#xa;serial parser, 57600 baud&#xa;/dev/ttyUSB0" vertex="1">
+          <mxGeometry height="44" width="130" x="25" y="36" as="geometry" />
+        </mxCell>
+        <mxCell id="comms_bridge_cell" parent="comms_bg" style="rounded=1;fillColor=#FFE6CC;strokeColor=#d79b00;fontSize=9;dashed=1;dashPattern=8 8;" value="comms_drive_bridge&#xa;Float32MultiArray[var1,var2]&#xa;→ geometry_msgs/Twist" vertex="1">
+          <mxGeometry height="44" width="137.5" x="21.25" y="124" as="geometry" />
+        </mxCell>
+        <mxCell id="e_comms_vars" edge="1" parent="comms_bg" source="comms_node_cell" style="edgeStyle=orthogonalEdgeStyle;fontSize=8;strokeColor=#d79b00;fillColor=#FFE6CC;labelBorderColor=#FFB570;" target="comms_bridge_cell" value="/comms/vars&#xa;Float32MultiArray">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_bs_radio" edge="1" parent="1" source="basestation" style="edgeStyle=orthogonalEdgeStyle;fontSize=8;dashed=1;strokeColor=#d79b00;fillColor=#FFE6CC;labelBorderColor=#FFB570;" target="radio_hw" value="radio link&#xa;(wireless)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_radio_comms" edge="1" parent="1" source="radio_hw" style="edgeStyle=orthogonalEdgeStyle;fontSize=8;strokeColor=#d79b00;fillColor=#FFE6CC;labelBorderColor=#FFB570;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" target="comms_node_cell" value="/dev/ttyUSB0&#xa;serial">
+          <mxGeometry relative="1" x="-0.1505" as="geometry">
+            <mxPoint x="-1" as="offset" />
+            <Array as="points">
+              <mxPoint x="1540" y="78" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_comms_drive" edge="1" parent="1" source="comms_bridge_cell" style="edgeStyle=orthogonalEdgeStyle;fontSize=8;dashed=1;strokeColor=#d79b00;fillColor=#FFE6CC;labelBorderColor=#d79b00;exitX=0.851;exitY=1.006;exitDx=0;exitDy=0;exitPerimeter=0;" target="drive_ctrl" value=" ">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1560" y="307" />
+              <mxPoint x="1560" y="500" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="leg6" parent="1" style="rounded=1;fillColor=#FFE6CC;strokeColor=#d79b00;fontStyle=1;" value="Comms" vertex="1">
+          <mxGeometry height="24" width="135" x="41.25" y="230" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
