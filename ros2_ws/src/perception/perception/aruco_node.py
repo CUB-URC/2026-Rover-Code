@@ -25,7 +25,7 @@ class ArucoNode(Node):
         self.aruco_dict = None
         self.aruco_params = None
         self.aruco_detector = None  # ArucoDetector object (OpenCV 4.7+)
-        # TODO: latest depth // if using depth refinement
+        # todo: latest depth // if using depth refinement
 
         # --- SETUP ---
         self.bridge = CvBridge()
@@ -98,6 +98,9 @@ class ArucoNode(Node):
             "camera_info_topic", "/zed/zed_node/rgb/color/rect/camera_info"
         ).get_parameter_value().string_value
 
+        self.declare_parameter("latest_depth", None) 
+
+
     def _setup_subscriptions(self):
 
           # --- QOS PROFILE ---
@@ -123,12 +126,19 @@ class ArucoNode(Node):
             qos_profile=qos,
         )
 
+        self.depth_sub = self.create_subscription(
+            Image,
+            "/zed/zed_node/depth/depth_registered",
+            self.depth_callback,
+            qos_profile=qos
+        )
+
     def _setup_publishers(self):
         
         self.publisher_ = self.create_publisher(Image, "perception/aruco_debug", 10)
 
         self.pose_publisher = self.create_publisher(
-            PoseArray, "perception/aruco_poses", 10  # TODO - adjust topic name ? id
+            PoseArray, "perception/aruco_poses", 10  # todo - adjust topic name ? id
         )
         self.tf_broadcaster = TransformBroadcaster(self)
 
@@ -139,7 +149,6 @@ class ArucoNode(Node):
         self.nav_post_2_pub = self.create_publisher(PoseStamped, "mission/nav_post_2_pose", 10)
         self.start_gate_pub = self.create_publisher(PoseStamped, "mission/start_gate_pose", 10)
 
-        # TODO: TF broadcast publisher for rviz
 
     def camera_info_callback(self, msg):
         """Get camera calibration from camera_info topic for pose estimation.
@@ -196,7 +205,10 @@ class ArucoNode(Node):
                         marker_id = ids[i][0]
                         marker_size = self.marker_sizes.get(marker_id, 0.02)
 
+
+                
                         # 3.2 estimate pose of each marker
+
                         # estimatePoseSingleMarkers removed in OpenCV 4.7+ — use solvePnP directly.
                         # define the marker's 4 corners in its own local 3D space (Z=0 plane)
                         half = marker_size / 2.0
@@ -207,6 +219,12 @@ class ArucoNode(Node):
                             [-half, -half, 0],
                         ], dtype=np.float32)
                         img_points = corner[0].astype(np.float32)  # shape (4,2)
+
+
+                        cx, cy = int(img_points[:, 0].mean()), int(img_points[:, 1].mean())
+                        roi = self.latest_depth[cx-1:cx+2, cy-1:cy+2] # sample to mitigate noise
+                        depth = float(np.nanmedian(roi))
+
                         _, rvec, tvec = cv2.solvePnP(
                             obj_points, img_points,
                             self.intrinsic_matrix, self.distortion_coeffs
@@ -217,11 +235,43 @@ class ArucoNode(Node):
 
                         # todo: integrate depth
 
+                        fx, fy = self.intrinsic_matrix[0, 0], self.intrinsic_matrix[1, 1]
+                        cx_k, cy_k = self.intrinsic_matrix[0, 2], self.intrinsic_matrix[1, 2]
+
+                        X = (cx - cx_k) * depth / fx
+                        Y = (cy - cy_k) * depth / fy
+                        Z = depth
+
                         # 3.3-4 build the pose from tvec and quat from rotation matrix
-                        pose, quat = self._build_pose(tvec, rvec)
+                        # pose, quat = self._build_pose(tvec, rvec)
+
+                        coords = [X,Y,Z]
+
+                        if self.latest_depth is None:
+                            self.get_logger().warn("No depth data available. Falling back to tvec translation for pose estimation.")
+                            coords = tvec
+
+                        if np.isnane(depth) or depth <= 0.0:
+                            self.get_logger().warn(
+                                f"Invalid depth reading for marker {marker_id} at pixel ({cx}, {cy}). "
+                                "Falling back to tvec translation for pose estimation. "
+                                "Check that the ZED is properly calibrated and that the marker is within range.",
+                                throttle_duration_sec=5.0
+                            )
+                            coords = tvec
+
+                        pose, quat = self._build_pose(coords, rvec)
                        
-                         # 3.5 draw axis on image
-                        cv2.drawFrameAxes(cv_image, self.intrinsic_matrix, self.distortion_coeffs, rvec, tvec, marker_size * 0.5)
+                         # 3.5 draw axis on image + label
+                        cv2.drawFrameAxes(cv_image, self.intrinsic_matrix, self.distortion_coeffs, rvec, tvec, marker_size * 0.5)   
+
+                        cv2.putText(
+                            cv_image,
+                            f"ID:{marker_id} ({self.marker_missions.get(marker_id, 'unknown')})",
+                            (int(corner[0][0][0]), int(corner[0][0][1]) - 10),
+                            cv2.FONT_HERSHEY_SIMPLEX,
+                            0.5, (255, 0, 0), 2
+                        )
 
                         pose_array.poses.append(pose)
                         self._broadcast_marker_tf(marker_id, pose, quat, msg.header.stamp)
@@ -314,6 +364,9 @@ class ArucoNode(Node):
 
 
     # TODO: depth refine callback and depth callback (???)
+    def depth_callback(self, msg):
+        self.latest_depth = self.bridge.imgmsg_to_cv2(msg, desired_encoding="32FC1")
+        # 32-bit float, meters, NaN = invalid
 
 
 def main(args=None):
