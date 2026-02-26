@@ -107,9 +107,9 @@ def generate_launch_description():
         ),
         launch_arguments={
             "params_file": nav2_params_file,
-            "use_sim_time": "false",
-            "autostart": "true",
-            "use_composition": "false",
+            "use_sim_time": "False",
+            "autostart": "True",
+            "use_composition": "False",
         }.items(),
     )
 

@@ -25,7 +25,7 @@ class ArucoNode(Node):
         self.aruco_dict = None
         self.aruco_params = None
         self.aruco_detector = None  # ArucoDetector object (OpenCV 4.7+)
-        # TODO: latest depth // if using depth refinement
+        # todo: latest depth // if using depth refinement
 
         # --- SETUP ---
         self.bridge = CvBridge()
@@ -138,7 +138,7 @@ class ArucoNode(Node):
         self.publisher_ = self.create_publisher(Image, "perception/aruco_debug", 10)
 
         self.pose_publisher = self.create_publisher(
-            PoseArray, "perception/aruco_poses", 10  # TODO - adjust topic name ? id
+            PoseArray, "perception/aruco_poses", 10  # todo - adjust topic name ? id
         )
         self.tf_broadcaster = TransformBroadcaster(self)
 
