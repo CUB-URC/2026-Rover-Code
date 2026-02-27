@@ -2,6 +2,12 @@ ros2_ws/build/
 ros2_ws/log/
 ros2_ws/install/
 
+# ZED SDK / ROS2 wrapper — external deps, install separately via setup_orin.sh
+ros2_ws/src/zed-ros2-wrapper/
+ros2_ws/src/zed-ros2-interfaces/
+ros2_ws/src/zed_ros2_wrapper/
+ros2_ws/src/zed_ros2_interfaces/
+
 # Python
 __pycache__/
 *.pyc
