@@ -13,6 +13,9 @@ __pycache__/
 *.pyc
 *.pyo
 
+# Windows download artifacts
+*Zone.Identifier
+
 *.env*
 *.gv
 frames_*.pdf
