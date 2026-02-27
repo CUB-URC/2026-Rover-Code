@@ -18,9 +18,14 @@ def generate_launch_description():
     rl_params_file = os.path.join(
         pkg_autonomy, "config", "nav2_localization.yaml"
     )  # reinforcement learning parameters
-    rviz_config_file = os.path.join(
-        pkg_autonomy, "config", "nav2_default_view.rviz"
-    )  # rviz config file
+
+    # use local rviz config if it exists, otherwise fall back to nav2_bringup's default
+    _local_rviz = os.path.join(pkg_autonomy, "config", "nav2_default_view.rviz")
+    rviz_config_file = (
+        _local_rviz
+        if os.path.isfile(_local_rviz)
+        else os.path.join(pkg_nav2_bringup, "rviz", "nav2_default_view.rviz")
+    )
 
     use_gps = LaunchConfiguration("use_gps")
     use_rviz = LaunchConfiguration("use_rviz")
@@ -35,6 +40,16 @@ def generate_launch_description():
         package="tf2_ros",
         executable="static_transform_publisher",
         arguments=["0", "0", "0", "0", "0", "0", "map", "odom"],
+        condition=UnlessCondition(use_gps),
+    )
+
+    # odom -> base_link static TF for desk testing (no ZED, no EKF)
+    # TODO - remove when using ZED
+    static_odom_base_tf = Node(
+        package="tf2_ros",
+        executable="static_transform_publisher",
+        name="static_odom_base_tf",
+        arguments=["0", "0", "0", "0", "0", "0", "odom", "base_link"],
         condition=UnlessCondition(use_gps),
     )
 
@@ -100,6 +115,32 @@ def generate_launch_description():
         condition=IfCondition(use_gps),
     )
 
+    """ map server — serves empty_map.yaml for no-GPS testing"""
+    map_server = Node(
+        package="nav2_map_server",
+        executable="map_server",
+        name="map_server",
+        output="screen",
+        parameters=[{
+            "yaml_filename": os.path.join(pkg_autonomy, "config", "empty_map.yaml"),
+            "use_sim_time": False,
+        }],
+        condition=UnlessCondition(use_gps),
+    )
+
+    map_server_lifecycle = Node(
+        package="nav2_lifecycle_manager",
+        executable="lifecycle_manager",
+        name="lifecycle_manager_map",
+        output="screen",
+        parameters=[{
+            "use_sim_time": False,
+            "autostart": True,
+            "node_names": ["map_server"],
+        }],
+        condition=UnlessCondition(use_gps),
+    )
+
     """ nav2 stack delegation to navigation_launch.py """
     nav2_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -133,10 +174,13 @@ def generate_launch_description():
                 "use_rviz", default_value="false", description="Launch RViz or not"
             ),
             static_map_odom_tf,
+            static_odom_base_tf,
             static_camera_base_tf,
             ekf_local,
             ekf_global,
             navsat_transform,
+            map_server,
+            map_server_lifecycle,
             nav2_launch,
             rviz,
         ]

@@ -1,0 +1,8 @@
+# 20 x 20 m all-free map for desk/no-GPS nav2 testing.
+# Generated — do not hand-edit the pgm.
+image: empty_map.pgm
+resolution: 0.10        # m/cell — matches global_costmap resolution
+origin: [-10.0, -10.0, 0.0]   # centre the robot at (0,0)
+negate: 0
+occupied_thresh: 0.65
+free_thresh: 0.196
