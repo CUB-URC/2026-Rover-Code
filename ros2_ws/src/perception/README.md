@@ -235,11 +235,10 @@ ros2 run perception yolo_node --ros-args \
 ## TODOs
 
 ### `aruco_node`
-- [ ] integrate ZED depth map to get 3D (X, Y, Z) tag coordinates
+- [ ] test ZED depth map integration
 - [ ] implement mission controller nodes that subscribe to pose topics and publish drive/arm commands
 
 ### `yolo_node`
-- [ ] test with webcam + real objects
 - [ ] train + export mallet model
 - [ ] train + export bottle model
 - [ ] tune confidence threshold per-class as needed
