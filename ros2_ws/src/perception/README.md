@@ -142,6 +142,20 @@ The node picks up `~/.ros/camera_info/default_cam.yaml` automatically via `usb_c
 
 ---
 
+#### Launch File
+
+```bash
+# build and source first
+
+# terminal 1: run launch file with yolo, aruco, and rviz
+ros2 launch perception perception_test.launch.py \
+  model_path:=$HOME/2026-Rover-Code/ros2_ws/src/perception/perception/models/hammer/best.onnx \
+  use_rviz:=true 
+
+# terminal 2: rqt image view for debugging
+ros2 run rqt_image_view rqt_image_view
+```
+
 #### Running `aruco_node` with webcam
 
 ```bash
