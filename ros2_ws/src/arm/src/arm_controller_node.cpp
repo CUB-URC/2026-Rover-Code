@@ -45,8 +45,7 @@ class ArmController : public rclcpp::Node {
         joint_states_publisher_ = this->create_publisher<sensor_msgs::msg::JointState>(joint_states_output_topic_, 10);
         RCLCPP_INFO(this->get_logger(), "Publishing joint states to topic: %s", joint_states_output_topic_.c_str());
 
-        const auto control_period = std::chrono::duration_cast<std::chrono::nanoseconds>(
-            std::chrono::duration<double>(control_period_s_));
+        const auto control_period = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::duration<double>(control_period_s_));
         control_timer_ = this->create_wall_timer(control_period, std::bind(&ArmController::control_loop, this));
 
         last_command_time_ = this->now();

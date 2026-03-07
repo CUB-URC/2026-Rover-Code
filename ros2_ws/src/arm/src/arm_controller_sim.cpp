@@ -1,15 +1,15 @@
-#include <rclcpp/rclcpp.hpp>
-#include <geometry_msgs/msg/twist.hpp>
-#include <sensor_msgs/msg/joint_state.hpp>
+#include <algorithm>
 #include <ament_index_cpp/get_package_share_directory.hpp>
-#include <yaml-cpp/yaml.h>
 #include <chrono>
 #include <cmath>
-#include <algorithm>
+#include <geometry_msgs/msg/twist.hpp>
 #include <map>
 #include <memory>
+#include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/joint_state.hpp>
 #include <string>
 #include <vector>
+#include <yaml-cpp/yaml.h>
 
 /**
  * @file arm_controller_sim.cpp
@@ -42,11 +42,9 @@ struct SimulatedJoint {
         current_position += steps_to_radians(current_speed * dt_s);
     }
 
-    double steps_to_radians(double steps) const
-    {
+    double steps_to_radians(double steps) const {
         constexpr double kTwoPi = 6.28318530717958647692;
-        const double steps_per_output_rev =
-            static_cast<double>(microsteps) * gear_ratio;
+        const double steps_per_output_rev = static_cast<double>(microsteps) * gear_ratio;
         if (steps_per_output_rev <= 0.0) {
             return 0.0;
         }
@@ -54,43 +52,31 @@ struct SimulatedJoint {
     }
 };
 
-class ArmControllerSim : public rclcpp::Node
-{
-public:
-    ArmControllerSim() : Node("arm_controller_sim")
-    {
+class ArmControllerSim : public rclcpp::Node {
+  public:
+    ArmControllerSim() : Node("arm_controller_sim") {
         if (!load_config()) {
             RCLCPP_ERROR(this->get_logger(), "Configuration load failed; shutting down arm simulator.");
             rclcpp::shutdown();
             return;
         }
 
-        cmd_subscription_ = this->create_subscription<geometry_msgs::msg::Twist>(
-            command_input_topic_,
-            10,
-            std::bind(&ArmControllerSim::cmd_callback, this, std::placeholders::_1));
+        cmd_subscription_ = this->create_subscription<geometry_msgs::msg::Twist>(command_input_topic_, 10, std::bind(&ArmControllerSim::cmd_callback, this, std::placeholders::_1));
 
-        joint_states_publisher_ = this->create_publisher<sensor_msgs::msg::JointState>(
-            joint_states_output_topic_,
-            10);
+        joint_states_publisher_ = this->create_publisher<sensor_msgs::msg::JointState>(joint_states_output_topic_, 10);
 
-        const auto control_period =
-            std::chrono::duration_cast<std::chrono::nanoseconds>(
-                std::chrono::duration<double>(control_period_s_));
-        control_timer_ = this->create_wall_timer(
-            control_period,
-            std::bind(&ArmControllerSim::control_loop, this));
+        const auto control_period = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::duration<double>(control_period_s_));
+        control_timer_ = this->create_wall_timer(control_period, std::bind(&ArmControllerSim::control_loop, this));
 
         last_command_time_ = this->now();
         last_update_time_ = this->now();
 
         RCLCPP_INFO(this->get_logger(), "Simulated Arm Controller initialized (SIM MODE)");
         RCLCPP_INFO(this->get_logger(), "Subscribing to %s", command_input_topic_.c_str());
-        RCLCPP_INFO(this->get_logger(), "Publishing joint states to %s",
-            joint_states_output_topic_.c_str());
+        RCLCPP_INFO(this->get_logger(), "Publishing joint states to %s", joint_states_output_topic_.c_str());
     }
 
-private:
+  private:
     std::map<std::string, SimulatedJoint> joints_;
     std::vector<std::string> joint_order_;
 
@@ -109,11 +95,9 @@ private:
     rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_states_publisher_;
     rclcpp::TimerBase::SharedPtr control_timer_;
 
-    bool load_config()
-    {
+    bool load_config() {
         try {
-            std::string package_share_directory =
-                ament_index_cpp::get_package_share_directory("arm");
+            std::string package_share_directory = ament_index_cpp::get_package_share_directory("arm");
             std::string config_file = package_share_directory + "/config/arm_config.yaml";
 
             RCLCPP_INFO(this->get_logger(), "Loading config from: %s", config_file.c_str());
@@ -209,8 +193,7 @@ private:
         }
     }
 
-    static void validate_joint_config(const std::string &joint_key, const SimulatedJoint &joint)
-    {
+    static void validate_joint_config(const std::string &joint_key, const SimulatedJoint &joint) {
         if (joint.microsteps <= 0) {
             throw std::runtime_error("Joint " + joint_key + " must have microsteps > 0");
         }
@@ -225,8 +208,7 @@ private:
         }
     }
 
-    double command_to_target_speed(const SimulatedJoint &joint, double command) const
-    {
+    double command_to_target_speed(const SimulatedJoint &joint, double command) const {
         if (!std::isfinite(command)) {
             return 0.0;
         }
@@ -238,14 +220,12 @@ private:
         return std::clamp(scaled_command, -joint.max_speed, joint.max_speed);
     }
 
-    void cmd_callback(const geometry_msgs::msg::Twist::SharedPtr msg)
-    {
+    void cmd_callback(const geometry_msgs::msg::Twist::SharedPtr msg) {
         last_command_time_ = this->now();
         last_command_ = *msg;
     }
 
-    void control_loop()
-    {
+    void control_loop() {
         const auto now = this->now();
         double dt = (now - last_update_time_).seconds();
         if (dt <= 0.0) {
@@ -262,8 +242,7 @@ private:
         publish_joint_states(now);
     }
 
-    void apply_command_to_targets()
-    {
+    void apply_command_to_targets() {
         // TODO: Confirm joint-to-axis mapping. Current mapping uses angular axes.
         double base_cmd = last_command_.angular.z;
         double shoulder_cmd = last_command_.angular.y;
@@ -274,8 +253,7 @@ private:
         set_target_with_limits("elbow", elbow_cmd);
     }
 
-    void set_target_with_limits(const std::string &joint_key, double target)
-    {
+    void set_target_with_limits(const std::string &joint_key, double target) {
         if (joints_.find(joint_key) == joints_.end()) {
             return;
         }
@@ -284,15 +262,13 @@ private:
         joint.target_speed = command_to_target_speed(joint, target);
     }
 
-    void update_joints(double dt)
-    {
+    void update_joints(double dt) {
         for (auto &entry : joints_) {
             entry.second.update(dt);
         }
     }
 
-    void publish_joint_states(const rclcpp::Time &stamp)
-    {
+    void publish_joint_states(const rclcpp::Time &stamp) {
         sensor_msgs::msg::JointState msg;
         msg.header.stamp = stamp;
         msg.name.reserve(joint_order_.size());
@@ -315,8 +291,7 @@ private:
     }
 };
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
     rclcpp::init(argc, argv);
     auto node = std::make_shared<ArmControllerSim>();
     rclcpp::spin(node);
