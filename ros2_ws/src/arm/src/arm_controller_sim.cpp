@@ -74,8 +74,11 @@ public:
             joint_states_output_topic_,
             10);
 
+        const auto control_period =
+            std::chrono::duration_cast<std::chrono::nanoseconds>(
+                std::chrono::duration<double>(control_period_s_));
         control_timer_ = this->create_wall_timer(
-            std::chrono::milliseconds(10),
+            control_period,
             std::bind(&ArmControllerSim::control_loop, this));
 
         last_command_time_ = this->now();
@@ -94,6 +97,7 @@ private:
     double input_timeout_ = 0.5;
     double deadzone_ = 0.05;
     double scale_speed_ = 1.0;
+    double control_period_s_ = 0.01;
     std::string command_input_topic_;
     std::string joint_states_output_topic_;
 
@@ -139,6 +143,7 @@ private:
                 sim_joint.max_accel = joint_limits["max_accel"].as<double>();
                 sim_joint.gear_ratio = joint["gear_ratio"].as<double>();
                 sim_joint.microsteps = joint["microsteps"].as<int>();
+                validate_joint_config(joint_key, sim_joint);
 
                 joints_[joint_key] = sim_joint;
                 joint_order_.push_back(joint_key);
@@ -151,11 +156,25 @@ private:
             input_timeout_ = command["input_timeout"].as<double>();
             deadzone_ = command["deadzone"].as<double>();
             scale_speed_ = command["scale_speed"].as<double>(1.0);
+            if (!std::isfinite(input_timeout_) || input_timeout_ < 0.0) {
+                throw std::runtime_error("arm.command.input_timeout must be finite and >= 0");
+            }
+            if (!std::isfinite(deadzone_) || deadzone_ < 0.0) {
+                throw std::runtime_error("arm.command.deadzone must be finite and >= 0");
+            }
+            if (!std::isfinite(scale_speed_) || scale_speed_ < 0.0) {
+                throw std::runtime_error("arm.command.scale_speed must be finite and >= 0");
+            }
 
             YAML::Node ros2 = config["arm"]["ros2"];
             if (!ros2 || !ros2.IsMap()) {
                 throw std::runtime_error("Missing arm.ros2 section in config");
             }
+            const double loop_rate_hz = ros2["loop_rate"].as<double>(100.0);
+            if (!std::isfinite(loop_rate_hz) || loop_rate_hz <= 0.0) {
+                throw std::runtime_error("arm.ros2.loop_rate must be finite and > 0");
+            }
+            control_period_s_ = 1.0 / loop_rate_hz;
             YAML::Node topics = ros2["topics"];
             if (!topics || !topics.IsMap()) {
                 throw std::runtime_error("Missing arm.ros2.topics section in config");
@@ -190,16 +209,39 @@ private:
         }
     }
 
+    static void validate_joint_config(const std::string &joint_key, const SimulatedJoint &joint)
+    {
+        if (joint.microsteps <= 0) {
+            throw std::runtime_error("Joint " + joint_key + " must have microsteps > 0");
+        }
+        if (!std::isfinite(joint.gear_ratio) || joint.gear_ratio <= 0.0) {
+            throw std::runtime_error("Joint " + joint_key + " must have gear_ratio > 0");
+        }
+        if (!std::isfinite(joint.max_speed) || joint.max_speed < 0.0) {
+            throw std::runtime_error("Joint " + joint_key + " must have max_speed >= 0");
+        }
+        if (!std::isfinite(joint.max_accel) || joint.max_accel < 0.0) {
+            throw std::runtime_error("Joint " + joint_key + " must have max_accel >= 0");
+        }
+    }
+
+    double command_to_target_speed(const SimulatedJoint &joint, double command) const
+    {
+        if (!std::isfinite(command)) {
+            return 0.0;
+        }
+
+        const double scaled_command = command * scale_speed_;
+        if (std::abs(scaled_command) < deadzone_) {
+            return 0.0;
+        }
+        return std::clamp(scaled_command, -joint.max_speed, joint.max_speed);
+    }
+
     void cmd_callback(const geometry_msgs::msg::Twist::SharedPtr msg)
     {
         last_command_time_ = this->now();
         last_command_ = *msg;
-        last_command_.linear.x *= scale_speed_;
-        last_command_.linear.y *= scale_speed_;
-        last_command_.linear.z *= scale_speed_;
-        last_command_.angular.x *= scale_speed_;
-        last_command_.angular.y *= scale_speed_;
-        last_command_.angular.z *= scale_speed_;
     }
 
     void control_loop()
@@ -207,7 +249,7 @@ private:
         const auto now = this->now();
         double dt = (now - last_update_time_).seconds();
         if (dt <= 0.0) {
-            dt = 0.01;
+            dt = control_period_s_;
         }
         last_update_time_ = now;
 
@@ -238,13 +280,8 @@ private:
             return;
         }
 
-        if (std::abs(target) < deadzone_) {
-            target = 0.0;
-        }
-
         SimulatedJoint &joint = joints_[joint_key];
-        target = std::max(-joint.max_speed, std::min(joint.max_speed, target));
-        joint.target_speed = target;
+        joint.target_speed = command_to_target_speed(joint, target);
     }
 
     void update_joints(double dt)

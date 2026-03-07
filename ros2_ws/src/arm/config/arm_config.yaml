@@ -56,8 +56,8 @@ arm:
   # Joystick/Command parameters
   command:
     input_timeout: 0.5    # stop if no command received for 0.5s
-    deadzone: 0.05        # avoid drift
-    scale_speed: 1.0
+    deadzone: 0.05        # ignore very small commanded speeds
+    scale_speed: 1.0      # multiplier applied to incoming joint speed commands before clamping
 
   # ROS2 Node configuration
   ros2:

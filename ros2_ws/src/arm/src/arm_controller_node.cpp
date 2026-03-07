@@ -15,6 +15,7 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <set>
 #include <string>
 #include <thread>
@@ -44,7 +45,9 @@ class ArmController : public rclcpp::Node {
         joint_states_publisher_ = this->create_publisher<sensor_msgs::msg::JointState>(joint_states_output_topic_, 10);
         RCLCPP_INFO(this->get_logger(), "Publishing joint states to topic: %s", joint_states_output_topic_.c_str());
 
-        control_timer_ = this->create_wall_timer(std::chrono::milliseconds(10), std::bind(&ArmController::control_loop, this));
+        const auto control_period = std::chrono::duration_cast<std::chrono::nanoseconds>(
+            std::chrono::duration<double>(control_period_s_));
+        control_timer_ = this->create_wall_timer(control_period, std::bind(&ArmController::control_loop, this));
 
         last_command_time_ = this->now();
         last_update_time_ = this->now();
@@ -67,8 +70,8 @@ class ArmController : public rclcpp::Node {
         int step_fd = -1;
         int dir_fd = -1;
 
-        std::atomic<double> target_hz{0.0};           // signed steps/sec
-        std::atomic<double> current_velocity_hz{0.0}; // signed steps/sec
+        std::atomic<double> commanded_velocity_hz{0.0}; // signed steps/sec
+        std::atomic<double> active_velocity_hz{0.0};    // signed steps/sec
         double current_position_rad = 0.0;
 
         std::atomic<bool> stop_worker{false};
@@ -84,12 +87,14 @@ class ArmController : public rclcpp::Node {
     double input_timeout_ = 0.5;
     double deadzone_ = 0.05;
     double scale_speed_ = 1.0;
+    double control_period_s_ = 0.01;
     std::string command_input_topic_;
     std::string joint_states_output_topic_;
 
     geometry_msgs::msg::Twist last_command_;
     rclcpp::Time last_command_time_;
     rclcpp::Time last_update_time_;
+    std::mutex command_mutex_;
 
     rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_subscription_;
     rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_states_publisher_;
@@ -132,6 +137,7 @@ class ArmController : public rclcpp::Node {
                 runtime->reversed = joint["reversed"].as<bool>();
                 runtime->max_speed = joint_limits["max_speed"].as<double>();
                 runtime->max_accel = joint_limits["max_accel"].as<double>();
+                validate_joint_config(*runtime);
 
                 joints_[joint_key] = std::move(runtime);
                 joint_order_.push_back(joint_key);
@@ -144,11 +150,25 @@ class ArmController : public rclcpp::Node {
             input_timeout_ = command["input_timeout"].as<double>();
             deadzone_ = command["deadzone"].as<double>();
             scale_speed_ = command["scale_speed"].as<double>(1.0);
+            if (!std::isfinite(input_timeout_) || input_timeout_ < 0.0) {
+                throw std::runtime_error("arm.command.input_timeout must be finite and >= 0");
+            }
+            if (!std::isfinite(deadzone_) || deadzone_ < 0.0) {
+                throw std::runtime_error("arm.command.deadzone must be finite and >= 0");
+            }
+            if (!std::isfinite(scale_speed_) || scale_speed_ < 0.0) {
+                throw std::runtime_error("arm.command.scale_speed must be finite and >= 0");
+            }
 
             YAML::Node ros2 = config["arm"]["ros2"];
             if (!ros2 || !ros2.IsMap()) {
                 throw std::runtime_error("Missing arm.ros2 section in config");
             }
+            const double loop_rate_hz = ros2["loop_rate"].as<double>(100.0);
+            if (!std::isfinite(loop_rate_hz) || loop_rate_hz <= 0.0) {
+                throw std::runtime_error("arm.ros2.loop_rate must be finite and > 0");
+            }
+            control_period_s_ = 1.0 / loop_rate_hz;
             YAML::Node topics = ros2["topics"];
             if (!topics || !topics.IsMap()) {
                 throw std::runtime_error("Missing arm.ros2.topics section in config");
@@ -193,9 +213,39 @@ class ArmController : public rclcpp::Node {
     }
 
     static inline void write_gpio_fd(int fd, int value) {
+        if (fd < 0) {
+            return;
+        }
         const char c = value ? '1' : '0';
         ::lseek(fd, 0, SEEK_SET); // set offset to start of file for each write
         (void)::write(fd, &c, 1);
+    }
+
+    static void validate_joint_config(const JointRuntime &joint) {
+        if (joint.microsteps <= 0) {
+            throw std::runtime_error("Joint " + joint.key + " must have microsteps > 0");
+        }
+        if (!std::isfinite(joint.gear_ratio) || joint.gear_ratio <= 0.0) {
+            throw std::runtime_error("Joint " + joint.key + " must have gear_ratio > 0");
+        }
+        if (!std::isfinite(joint.max_speed) || joint.max_speed < 0.0) {
+            throw std::runtime_error("Joint " + joint.key + " must have max_speed >= 0");
+        }
+        if (!std::isfinite(joint.max_accel) || joint.max_accel < 0.0) {
+            throw std::runtime_error("Joint " + joint.key + " must have max_accel >= 0");
+        }
+    }
+
+    double command_to_target_hz(const JointRuntime &joint, double command) const {
+        if (!std::isfinite(command)) {
+            return 0.0;
+        }
+
+        const double scaled_command = command * scale_speed_;
+        if (std::abs(scaled_command) < deadzone_) {
+            return 0.0;
+        }
+        return std::clamp(scaled_command, -joint.max_speed, joint.max_speed);
     }
 
     bool init_gpio() {
@@ -283,14 +333,14 @@ class ArmController : public rclcpp::Node {
         int last_dir_level = -1;
 
         while (!joint->stop_worker.load()) {
-            const double target_hz = joint->target_hz.load();
-            if (std::abs(target_hz) < 1e-6) {
+            const double active_hz = joint->active_velocity_hz.load();
+            if (std::abs(active_hz) < 1e-6) {
                 write_gpio_fd(joint->step_fd, 0);
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
                 continue;
             }
 
-            bool forward = target_hz >= 0.0;
+            bool forward = active_hz >= 0.0;
             if (joint->reversed) {
                 forward = !forward;
             }
@@ -301,7 +351,7 @@ class ArmController : public rclcpp::Node {
                 std::this_thread::sleep_for(std::chrono::microseconds(10));
             }
 
-            const double hz = std::abs(target_hz);
+            const double hz = std::abs(active_hz);
             const int period_us = std::max(2 * kMinPulseUs, static_cast<int>(std::llround(1e6 / hz)));
             const int high_us = std::max(kMinPulseUs, period_us / 2);
             const int low_us = std::max(kMinPulseUs, period_us - high_us);
@@ -339,35 +389,25 @@ class ArmController : public rclcpp::Node {
     }
 
     void cmd_callback(const geometry_msgs::msg::Twist::SharedPtr msg) {
+        std::lock_guard<std::mutex> lock(command_mutex_);
         last_command_time_ = this->now();
         last_command_ = *msg;
-        last_command_.linear.x *= scale_speed_;
-        last_command_.linear.y *= scale_speed_;
-        last_command_.linear.z *= scale_speed_;
-        last_command_.angular.x *= scale_speed_;
-        last_command_.angular.y *= scale_speed_;
-        last_command_.angular.z *= scale_speed_;
     }
 
-    void set_target_with_limits(const std::string &joint_key, double target) {
+    void set_target_with_limits(const std::string &joint_key, double command) {
         auto it = joints_.find(joint_key);
         if (it == joints_.end()) {
             return;
         }
 
-        if (std::abs(target) < deadzone_) {
-            target = 0.0;
-        }
-
         JointRuntime &joint = *it->second;
-        target = std::clamp(target, -joint.max_speed, joint.max_speed);
-        joint.target_hz.store(target);
+        joint.commanded_velocity_hz.store(command_to_target_hz(joint, command));
     }
 
-    void apply_command_to_targets() {
-        set_target_with_limits("base", last_command_.angular.z);
-        set_target_with_limits("shoulder", last_command_.angular.y);
-        set_target_with_limits("elbow", last_command_.angular.x);
+    void apply_command_to_targets(const geometry_msgs::msg::Twist &command) {
+        set_target_with_limits("base", command.angular.z);
+        set_target_with_limits("shoulder", command.angular.y);
+        set_target_with_limits("elbow", command.angular.x);
     }
 
     static double steps_to_radians(const JointRuntime &joint, double steps) {
@@ -382,8 +422,8 @@ class ArmController : public rclcpp::Node {
     void update_joint_states(double dt) {
         for (const auto &key : joint_order_) {
             JointRuntime &joint = *joints_.at(key);
-            double current_hz = joint.current_velocity_hz.load();
-            const double target_hz = joint.target_hz.load();
+            double current_hz = joint.active_velocity_hz.load();
+            const double target_hz = joint.commanded_velocity_hz.load();
 
             const double max_change = std::max(0.0, joint.max_accel) * dt;
             const double delta = target_hz - current_hz;
@@ -395,7 +435,7 @@ class ArmController : public rclcpp::Node {
                 current_hz = target_hz;
             }
 
-            joint.current_velocity_hz.store(current_hz);
+            joint.active_velocity_hz.store(current_hz);
             joint.current_position_rad += steps_to_radians(joint, current_hz * dt);
         }
     }
@@ -411,7 +451,7 @@ class ArmController : public rclcpp::Node {
             const JointRuntime &joint = *joints_.at(key);
             msg.name.push_back(key);
             msg.position.push_back(joint.current_position_rad);
-            msg.velocity.push_back(steps_to_radians(joint, joint.current_velocity_hz.load()));
+            msg.velocity.push_back(steps_to_radians(joint, joint.active_velocity_hz.load()));
         }
 
         joint_states_publisher_->publish(msg);
@@ -419,17 +459,22 @@ class ArmController : public rclcpp::Node {
 
     void control_loop() {
         const auto now = this->now();
+        geometry_msgs::msg::Twist command;
+        {
+            std::lock_guard<std::mutex> lock(command_mutex_);
+            if ((now - last_command_time_).seconds() > input_timeout_) {
+                last_command_ = geometry_msgs::msg::Twist();
+            }
+            command = last_command_;
+        }
+
         double dt = (now - last_update_time_).seconds();
         if (dt <= 0.0) {
-            dt = 0.01;
+            dt = control_period_s_;
         }
         last_update_time_ = now;
 
-        if ((now - last_command_time_).seconds() > input_timeout_) {
-            last_command_ = geometry_msgs::msg::Twist();
-        }
-
-        apply_command_to_targets();
+        apply_command_to_targets(command);
         update_joint_states(dt);
         publish_joint_states(now);
     }
