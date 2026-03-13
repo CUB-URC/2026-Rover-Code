@@ -1,0 +1,51 @@
+marker_mappings:
+
+  # --- MISSION: AUTONOMOUS NAVIGATION ---
+  # todo: confirm if these marker IDs are fixed? (requirements say the example img is "exactly" how they will be set up, not sure if that means the marker IDs are also fixed.) 
+  # just change the IDs as needed
+  start_gate:
+    ids: [0]
+    size: 0.20 # meters — 20x20 cm face, same post design as nav posts
+    description: "start gate reference post; used for initial GNSS alignment"
+  nav_post_1:
+    ids: [1]
+    size: 0.20 # meters
+    description: "nav post 1 — GNSS coords within 5-10m, stop within 2m"
+  nav_post_2:
+    ids: [2]
+    size: 0.20 # meters
+    description: "nav post 2 — GNSS coords within 10-20m, stop within 2m"
+
+  # --- MISSION: EQUIPMENT SERVICING ---
+  # update IDs as needed - just placeholders for now
+  keyboard:
+    ids: [20, 21, 22, 23] # placeholder — 2x2 cm markers at keyboard corners
+    size: 0.02 # meters
+    description: "2x2 cm markers at keyboard corners (IDs TBD by comp)"
+  usb_slot:
+    ids: [30, 31, 32, 33] # placeholder — 1x1 cm markers at USB slot corners (4 corners)
+    size: 0.01 # meters
+    description: "1x1 cm markers at USB slot corners (IDs TBD by comp)"
+
+
+/aruco_node:
+  ros__parameters:
+    marker_size_dict: # in meters, by marker id — sync with marker_mappings
+      0: 0.20  # start_gate
+      1: 0.20  # nav_post_1
+      2: 0.20  # nav_post_2
+      20: 0.02 # keyboard
+      21: 0.02
+      22: 0.02
+      23: 0.02
+      30: 0.01 # usb_slot
+      31: 0.01
+      32: 0.01
+      33: 0.01
+    aruco_dictionary_id: DICT_4X4_50
+    debug_topic: /perception/aruco_debug
+
+    
+    # ouput topics
+    detected_markers_topic: /perception/detected_markers
+    marker_poses_topic: /perception/marker_poses

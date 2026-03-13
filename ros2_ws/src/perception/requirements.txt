@@ -1,0 +1,12 @@
+# Perception package Python dependencies
+# Install with: pip install -r requirements.txt
+#
+# numpy MUST stay <2 — cv_bridge and OpenCV ROS bindings are compiled
+# against the NumPy 1.x C API and will crash with NumPy 2.x
+numpy<2
+
+# YOLO inference (installs torch, torchvision, etc.)
+ultralytics
+
+# rotation math for pose estimation
+scipy
