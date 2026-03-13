@@ -55,6 +55,8 @@ class ArucoNode(Node):
                 "Check that the dictionary name is valid (e.g. DICT_4X4_50)."
             )
             raise
+    
+        self.frame_count = 0
 
     def _load_config(self):
         """maps marker ids -> mission objectives"""
@@ -134,8 +136,19 @@ class ArucoNode(Node):
         )
 
     def _setup_publishers(self):
+        # Create the high-speed profile again
+        qos = QoSProfile(
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1
+        )
         
-        self.publisher_ = self.create_publisher(Image, "perception/aruco_debug", 10)
+        # Apply it to the debug image publisher!
+        self.publisher_ = self.create_publisher(
+            Image, 
+            "perception/aruco_debug", 
+            qos_profile=qos  # <--- THIS STOPS THE PUBLISHER LAG
+        )
 
         self.pose_publisher = self.create_publisher(
             PoseArray, "perception/aruco_poses", 10  # todo - adjust topic name ? id
@@ -170,6 +183,11 @@ class ArucoNode(Node):
             self.get_logger().info("Received camera calibration parameters — pose estimation enabled")
 
     def listener_callback(self, msg):
+        # THROTTLE: Only run the heavy math on every 3rd frame
+        self.frame_count += 1
+        if self.frame_count % 3 != 0:
+            return
+        
         try:
             if self.aruco_dict is None and self.aruco_detector is None:
                 self.get_logger().error(
@@ -287,28 +305,35 @@ class ArucoNode(Node):
                     )
 
             # 4. publish debug image (always, regardless of detections or calibration)
-            debug_msg = self.bridge.cv2_to_imgmsg(cv_image, "bgr8")
+            # Resize it specifically for rqt_image_view so it doesn't choke the network
+            debug_small = cv2.resize(cv_image, (0,0), fx=0.5, fy=0.5)
+            debug_msg = self.bridge.cv2_to_imgmsg(debug_small, "bgr8")
+            
             self.publisher_.publish(debug_msg)
 
         except Exception as e:
             self.get_logger().error(f"Error processing image: {str(e)}")
 
     def _build_pose(self, tvec, rvec):
-        # 1. convert to ROS pose message
-        pose = Pose()
-        pose.position.x = tvec[0][0][0]
-        pose.position.y = tvec[0][0][1]
-        pose.position.z = tvec[0][0][2]
+            # 1. convert to ROS pose message
+            pose = Pose()
+            
+            # CAST NUMPY FLOATS TO NATIVE PYTHON FLOATS
+            pose.position.x = float(tvec[0][0][0])
+            pose.position.y = float(tvec[0][0][1])
+            pose.position.z = float(tvec[0][0][2])
 
-        # 2. convert rotation vector to quaternion
-        rotation_matrix = cv2.Rodrigues(rvec[0][0])[0]
-        quat = R.from_matrix(rotation_matrix).as_quat()  # [x, y, z, w]
-        pose.orientation.x = quat[0]
-        pose.orientation.y = quat[1]
-        pose.orientation.z = quat[2]
-        pose.orientation.w = quat[3]
+            # 2. convert rotation vector to quaternion
+            rotation_matrix = cv2.Rodrigues(rvec[0][0])[0]
+            quat = R.from_matrix(rotation_matrix).as_quat()  # returns a numpy array
 
-        return pose, quat
+            # CAST THESE TOO
+            pose.orientation.x = float(quat[0])
+            pose.orientation.y = float(quat[1])
+            pose.orientation.z = float(quat[2])
+            pose.orientation.w = float(quat[3])
+
+            return pose, quat
 
     def _publish_mission_objective(self, marker_id, pose, timestamp):
         """Given a detected marker ID, publish the corresponding mission objective"""

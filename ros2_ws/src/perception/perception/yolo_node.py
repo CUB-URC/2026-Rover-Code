@@ -28,6 +28,30 @@ class YoloNode(Node):
         self._setup_subscriptions()
         self._setup_publishers()
         self._load_model()
+
+        self.frame_count = 0
+
+        # 1. Create the high-speed, drop-old-frames profile
+        qos_profile = QoSProfile(
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1
+        )
+
+        # 2. Apply it to the subscriber
+        self.subscription = self.create_subscription(
+            Image,
+            "/image", 
+            self.listener_callback,
+            qos_profile=qos_profile
+        )
+
+        # 3. Apply it to the publisher (This stops the network choking!)
+        self.debug_pub = self.create_publisher(
+            Image, 
+            "perception/yolo_debug", 
+            qos_profile=qos_profile
+        )
     
     def _setup_parameters(self):
         self.model_path = os.path.expanduser(self.declare_parameter("model_path", "").get_parameter_value().string_value)
@@ -85,14 +109,16 @@ class YoloNode(Node):
         )
     
     def listener_callback(self, msg):
+        # THROTTLE: Only process every 3rd frame
+        self.frame_count += 1
+        if self.frame_count % 3 != 0:
+            return
+
         try:
             cv_image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
 
-            # 1. run inference on model (passthrough debug image if no model loaded)
-            if self.model is None:
-                self.debug_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, "bgr8"))
-                return
-            results = self.model(cv_image, conf=self.confidence_threshold, verbose=False)
+            # Let YOLO internally resize for inference speed
+            results = self.model(cv_image, imgsz=640, conf=self.confidence_threshold, verbose=False)
             res = results[0]
 
             # 2. create the detection image array
@@ -154,22 +180,38 @@ class YoloNode(Node):
                     0.6, color, 2
                 )
 
-            # 4. publish detections array
-            self.detections_pub.publish(detection_arr)
+            # Plot the boxes using Ultralytics' built-in C++ optimized plotter
+            # Create a copy of the image to draw on
+            debug_image = cv_image.copy()
 
-            # 5. publish best detection if found
-            if best_detection is not None:
-                self.best_detection_pub.publish(best_detection)
-                self.get_logger().info(
-                    f"Best detection: {best_detection.results[0].hypothesis.class_id}"
-                    f"({best_confidence:.3f})"
+            # Loop through every detected object
+            for box in res.boxes:
+                # 1. Get the bounding box coordinates (x_min, y_min, x_max, y_max)
+                x1, y1, x2, y2 = map(int, box.xyxy[0])
+                
+                # 2. Draw the GREEN rectangle (B, G, R) -> (0, 255, 0)
+                cv2.rectangle(debug_image, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                
+                # 3. Add the GREEN text
+                cv2.putText(
+                    debug_image, 
+                    "Hammer", 
+                    (x1, y1 - 10), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 
+                    0.6, 
+                    (0, 255, 0), 
+                    2
                 )
 
-            # 6. publish debug image
-            self.debug_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, "bgr8"))
+            # NETWORK HACK: Shrink the debug image by 50% before publishing
+            # This cuts the network payload by 75% so rqt_image_view stays smooth
+            debug_small = cv2.resize(debug_image, (0, 0), fx=0.5, fy=0.5)
+
+            # Publish the smaller, smooth image
+            self.debug_pub.publish(self.bridge.cv2_to_imgmsg(debug_small, "bgr8"))
 
         except Exception as e:
-            self.get_logger().error(f"Error in YOLO listener_callback: {str(e)}")
+            self.get_logger().error(f"YOLO Error: {e}")
         
 
 def main(args=None):
