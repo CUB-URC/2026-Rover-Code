@@ -8,6 +8,7 @@ RUN apt update && apt install -y \
     python3-vcstool \
     git \
     build-essential \
+    python3-pip \
     ros-humble-cv-bridge \
     ros-humble-image-transport \
     ros-humble-rviz2 \
@@ -18,6 +19,6 @@ RUN rosdep update
 
 # Python dependencies — numpy pinned <2 (cv_bridge compiled against 1.x C API)
 COPY ros2_ws/src/perception/requirements.txt /tmp/requirements.txt
-RUN pip install -r /tmp/requirements.txt
+RUN pip3 install -r /tmp/requirements.txt
 
 WORKDIR /workspace
