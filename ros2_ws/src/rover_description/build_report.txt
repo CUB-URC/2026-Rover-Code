@@ -1,0 +1,20 @@
+BUILD REPORT for urc_rover_v5
+
+Total mass: 36.97 kg
+Wheel radius 140.0 mm, width 90.0 mm, track (separation) 930.0 mm
+Spawn height: 0.457 m
+
+Links (ROS axes, world, mm):
+  base_link            mass   12.06 kg   origin 0 0 31
+  rocker_left          mass    1.34 kg   origin 0 366 31
+  rocker_right         mass    1.34 kg   origin 0 -366 31
+  bogie_left           mass    1.17 kg   origin 216 366 -109
+  bogie_right          mass    1.17 kg   origin 219 -366 -105
+  wheel_front_left     mass    3.32 kg   origin 452 465 -256
+  wheel_middle_left    mass    3.32 kg   origin -24 465 -250
+  wheel_rear_left      mass    3.32 kg   origin -479 465 -236
+  wheel_front_right    mass    3.32 kg   origin 456 -465 -249
+  wheel_middle_right   mass    3.32 kg   origin -20 -465 -248
+  wheel_rear_right     mass    3.32 kg   origin -473 -465 -245
+
+Warnings: none

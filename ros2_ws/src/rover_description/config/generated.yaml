@@ -1,0 +1,13 @@
+spawn_z: 0.457
+wheel_radius: 0.14
+wheel_separation: 0.93
+wheel_width: 0.09
+total_mass_kg: 36.969
+differential:
+  mode: linkage
+  left_joint: rocker_left_joint
+  right_joint: rocker_right_joint
+  ratio: 1.0
+  stiffness: 15000.0
+  damping: 80.0
+  max_torque: 2000.0
