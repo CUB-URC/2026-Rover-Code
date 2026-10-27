@@ -1,1 +1,0 @@
-/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/simulation/ament_cmake_core/simulationConfig-version.cmake

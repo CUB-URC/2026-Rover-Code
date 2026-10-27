@@ -19,3 +19,11 @@ __pycache__/
 *.env*
 *.gv
 frames_*.pdf
+
+# colcon run from repo root
+/build/
+/install/
+/log/
+
+# editor
+.vscode/

@@ -1,1 +1,0 @@
-/home/ender/CUB-URC/2026-Rover-Code/ros2_ws/build/autonomy/ament_cmake_core/autonomyConfig-version.cmake
