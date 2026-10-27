@@ -1,0 +1,100 @@
+# python3 tools/rover_cad/build_urdf.py tools/rover_cad/rover_config.yaml
+
+robot_name: urc_rover_v5
+
+export_dir: placeholder_export
+
+# package_dir: ../../ros2_ws/src/rover_description
+# sim_package_dir: ../../ros2_ws/src/simulation
+
+fusion_axes:
+  forward: "+Y"
+  up: "+Z"
+
+base_link_origin_mm: [0, 0, 31]
+
+visual_max_triangles: 30000
+
+mass_override_kg: {}
+#  base_link: 30.0
+
+# origin: point:<name> | mm: [x, y, z] | wheel_center | mirror_of: <joint>
+joints:
+  rocker_left_joint:
+    parent: base_link
+    child: rocker_left
+    type: revolute
+    origin: {mm: [-366, 0, 31]}
+    axis: lateral
+    limit_deg: [-35, 35]
+
+  rocker_right_joint:
+    parent: base_link
+    child: rocker_right
+    type: revolute
+    origin: {mm: [366, 0, 31]}
+    axis: lateral
+    limit_deg: [-35, 35]
+
+  bogie_left_joint:
+    parent: rocker_left
+    child: bogie_left
+    type: revolute
+    origin: {mm: [-366, 216, -109]}
+    axis: lateral
+    limit_deg: [-45, 45]
+
+  bogie_right_joint:
+    parent: rocker_right
+    child: bogie_right
+    type: revolute
+    origin: {mm: [366, 219, -105]}
+    axis: lateral
+    limit_deg: [-45, 45]
+
+  wheel_front_left_joint:   {parent: bogie_left,   child: wheel_front_left,   type: continuous, origin: wheel_center, axis: lateral}
+  wheel_middle_left_joint:  {parent: bogie_left,   child: wheel_middle_left,  type: continuous, origin: wheel_center, axis: lateral}
+  wheel_rear_left_joint:    {parent: rocker_left,  child: wheel_rear_left,    type: continuous, origin: wheel_center, axis: lateral}
+  wheel_front_right_joint:  {parent: bogie_right,  child: wheel_front_right,  type: continuous, origin: wheel_center, axis: lateral}
+  wheel_middle_right_joint: {parent: bogie_right,  child: wheel_middle_right, type: continuous, origin: wheel_center, axis: lateral}
+  wheel_rear_right_joint:   {parent: rocker_right, child: wheel_rear_right,   type: continuous, origin: wheel_center, axis: lateral}
+
+wheels:
+  left:  [wheel_front_left_joint, wheel_middle_left_joint, wheel_rear_left_joint]
+  right: [wheel_front_right_joint, wheel_middle_right_joint, wheel_rear_right_joint]
+  # null = measured from mesh
+  radius_m: null
+  width_m: null
+  collision: cylinder  # cylinder | lugs | mesh
+  friction: 1.0
+  lugs: {count: 20, height_m: 0.0036, thickness_m: auto}
+  compliance: null
+  # compliance: {stiffness_n_per_m: 5000, damping_ns_per_m: 100, travel_m: 0.025}
+
+drive:
+  max_linear_mps: 1.0
+  max_angular_rps: 1.5
+  max_accel_mps2: 1.5
+
+# linkage | spring | mimic | none
+differential:
+  mode: linkage
+  left_joint: rocker_left_joint
+  right_joint: rocker_right_joint
+  ratio: 1.0
+  linkage_stiffness_nm_per_rad: 15000
+  linkage_damping_nms_per_rad: 80
+  linkage_max_torque_nm: 2000
+  linkage_backup_spring_nm_per_rad: 30
+  spring_stiffness_nm_per_rad: 150
+  damping_nms_per_rad: 5
+
+# box | mesh | none
+collision:
+  base_link: mesh
+  rocker_left: mesh
+  rocker_right: mesh
+  bogie_left: mesh
+  bogie_right: mesh
+
+collision_max_triangles: 5000

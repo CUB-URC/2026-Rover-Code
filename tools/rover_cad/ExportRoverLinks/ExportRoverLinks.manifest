@@ -1,0 +1,10 @@
+{
+	"autodeskProduct": "Fusion",
+	"type": "script",
+	"author": "URC Drive Team",
+	"description": {
+		"": "Groups rover bodies into URDF links and exports STL meshes + mass properties for ROS 2 / Gazebo."
+	},
+	"supportedOS": "windows|mac",
+	"editEnabled": true
+}
