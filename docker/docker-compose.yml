@@ -10,6 +10,38 @@ services:
       - ../:/workspace
     tty: true
 
+  # run `xhost +local:docker` first
+  sim:
+    build:
+      context: ..
+      dockerfile: docker/sim.Dockerfile
+    network_mode: host
+    ipc: host
+    environment:
+      - DISPLAY
+      - QT_X11_NO_MITSHM=1
+    volumes:
+      - ../:/workspace
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    devices:
+      - /dev/dri:/dev/dri
+    tty: true
+
+  # needs nvidia-container-toolkit
+  sim-nvidia:
+    extends: sim
+    environment:
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      - __NV_PRIME_RENDER_OFFLOAD=1
+      - __GLX_VENDOR_LIBRARY_NAME=nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
   orin:
     build:
       context: ..
