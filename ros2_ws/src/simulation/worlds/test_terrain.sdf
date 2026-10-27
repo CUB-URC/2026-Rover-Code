@@ -1,0 +1,193 @@
+<?xml version="1.0"?>
+<sdf version="1.9">
+  <world name="test_terrain">
+    <physics name="1ms" type="ignored">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+    </physics>
+    <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics"/>
+    <plugin filename="gz-sim-user-commands-system" name="gz::sim::systems::UserCommands"/>
+    <plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster"/>
+    <scene><ambient>0.6 0.6 0.6 1</ambient><background>0.75 0.82 0.9 1</background></scene>
+    <light type="directional" name="sun">
+      <cast_shadows>false</cast_shadows>
+      <pose>0 0 20 0 0 0</pose>
+      <diffuse>0.9 0.9 0.85 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
+      <direction>-0.4 0.3 -0.9</direction>
+    </light>
+    <model name="ground">
+      <static>true</static>
+      <link name="link">
+        <collision name="c">
+          <geometry><plane><normal>0 0 1</normal><size>200 200</size></plane></geometry>
+          <surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface>
+        </collision>
+        <visual name="v">
+          <geometry><plane><normal>0 0 1</normal><size>200 200</size></plane></geometry>
+          <material><ambient>0.72 0.58 0.42 1</ambient><diffuse>0.72 0.58 0.42 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+    <model name="ramp_15deg">
+      <static>true</static>
+      <pose>5 0 0.3 0 -0.2618 0</pose>
+      <link name="link">
+        <collision name="c"><geometry><box><size>3 3 0.1</size></box></geometry>
+          <surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface></collision>
+        <visual name="v"><geometry><box><size>3 3 0.1</size></box></geometry>
+          <material><ambient>0.45 0.38 0.32 1</ambient><diffuse>0.45 0.38 0.32 1</diffuse></material></visual>
+      </link>
+    </model>
+    <model name="step_8cm">
+      <static>true</static>
+      <pose>2.5 -3.0 0.04 0 0 0</pose>
+      <link name="link">
+        <collision name="c"><geometry><box><size>0.4 0.6 0.08</size></box></geometry>
+          <surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface></collision>
+        <visual name="v"><geometry><box><size>0.4 0.6 0.08</size></box></geometry>
+          <material><ambient>0.45 0.38 0.32 1</ambient><diffuse>0.45 0.38 0.32 1</diffuse></material></visual>
+      </link>
+    </model>
+    <model name="step_12cm">
+      <static>true</static>
+      <pose>2.5 -4.2 0.06 0 0 0</pose>
+      <link name="link">
+        <collision name="c"><geometry><box><size>0.4 0.6 0.12</size></box></geometry>
+          <surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface></collision>
+        <visual name="v"><geometry><box><size>0.4 0.6 0.12</size></box></geometry>
+          <material><ambient>0.45 0.38 0.32 1</ambient><diffuse>0.45 0.38 0.32 1</diffuse></material></visual>
+      </link>
+    </model>
+    <model name="step_16cm">
+      <static>true</static>
+      <pose>2.5 -5.4 0.08 0 0 0</pose>
+      <link name="link">
+        <collision name="c"><geometry><box><size>0.4 0.6 0.16</size></box></geometry>
+          <surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface></collision>
+        <visual name="v"><geometry><box><size>0.4 0.6 0.16</size></box></geometry>
+          <material><ambient>0.45 0.38 0.32 1</ambient><diffuse>0.45 0.38 0.32 1</diffuse></material></visual>
+      </link>
+    </model>
+    <model name="rock_0">
+      <static>true</static>
+      <pose>-4.93 0.27 0.050 0.06 0.08 0.20</pose>
+      <link name="link">
+        <collision name="c"><geometry><box><size>0.162 0.124 0.124</size></box></geometry>
+          <surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface></collision>
+        <visual name="v"><geometry><box><size>0.162 0.124 0.124</size></box></geometry>
+          <material><ambient>0.4 0.36 0.33 1</ambient><diffuse>0.4 0.36 0.33 1</diffuse></material></visual>
+      </link>
+    </model>
+    <model name="rock_1">
+      <static>true</static>
+      <pose>-5.94 2.02 0.044 -0.16 0.30 1.41</pose>
+      <link name="link">
+        <collision name="c"><geometry><box><size>0.144 0.111 0.111</size></box></geometry>
+          <surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface></collision>
+        <visual name="v"><geometry><box><size>0.144 0.111 0.111</size></box></geometry>
+          <material><ambient>0.4 0.36 0.33 1</ambient><diffuse>0.4 0.36 0.33 1</diffuse></material></visual>
+      </link>
+    </model>
+    <model name="rock_2">
+      <static>true</static>
+      <pose>-2.24 -0.14 0.063 -0.21 0.08 2.60</pose>
+      <link name="link">
+        <collision name="c"><geometry><box><size>0.204 0.157 0.157</size></box></geometry>
+          <surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface></collision>
+        <visual name="v"><geometry><box><size>0.204 0.157 0.157</size></box></geometry>
+          <material><ambient>0.4 0.36 0.33 1</ambient><diffuse>0.4 0.36 0.33 1</diffuse></material></visual>
+      </link>
+    </model>
+    <model name="rock_3">
+      <static>true</static>
+      <pose>-3.65 1.45 0.064 -0.26 0.15 1.77</pose>
+      <link name="link">
+        <collision name="c"><geometry><box><size>0.209 0.161 0.161</size></box></geometry>
+          <surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface></collision>
+        <visual name="v"><geometry><box><size>0.209 0.161 0.161</size></box></geometry>
+          <material><ambient>0.4 0.36 0.33 1</ambient><diffuse>0.4 0.36 0.33 1</diffuse></material></visual>
+      </link>
+    </model>
+    <model name="rock_4">
+      <static>true</static>
+      <pose>-4.64 -2.81 0.074 -0.02 0.13 2.64</pose>
+      <link name="link">
+        <collision name="c"><geometry><box><size>0.239 0.184 0.184</size></box></geometry>
+          <surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface></collision>
+        <visual name="v"><geometry><box><size>0.239 0.184 0.184</size></box></geometry>
+          <material><ambient>0.4 0.36 0.33 1</ambient><diffuse>0.4 0.36 0.33 1</diffuse></material></visual>
+      </link>
+    </model>
+    <model name="rock_5">
+      <static>true</static>
+      <pose>-2.79 2.53 0.051 0.18 -0.03 2.81</pose>
+      <link name="link">
+        <collision name="c"><geometry><box><size>0.166 0.127 0.127</size></box></geometry>
+          <surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface></collision>
+        <visual name="v"><geometry><box><size>0.166 0.127 0.127</size></box></geometry>
+          <material><ambient>0.4 0.36 0.33 1</ambient><diffuse>0.4 0.36 0.33 1</diffuse></material></visual>
+      </link>
+    </model>
+    <model name="rock_6">
+      <static>true</static>
+      <pose>-2.05 -2.42 0.039 -0.17 0.28 1.31</pose>
+      <link name="link">
+        <collision name="c"><geometry><box><size>0.125 0.096 0.096</size></box></geometry>
+          <surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface></collision>
+        <visual name="v"><geometry><box><size>0.125 0.096 0.096</size></box></geometry>
+          <material><ambient>0.4 0.36 0.33 1</ambient><diffuse>0.4 0.36 0.33 1</diffuse></material></visual>
+      </link>
+    </model>
+    <model name="rock_7">
+      <static>true</static>
+      <pose>-3.18 -1.19 0.056 -0.07 -0.09 1.76</pose>
+      <link name="link">
+        <collision name="c"><geometry><box><size>0.183 0.141 0.141</size></box></geometry>
+          <surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface></collision>
+        <visual name="v"><geometry><box><size>0.183 0.141 0.141</size></box></geometry>
+          <material><ambient>0.4 0.36 0.33 1</ambient><diffuse>0.4 0.36 0.33 1</diffuse></material></visual>
+      </link>
+    </model>
+    <model name="rock_8">
+      <static>true</static>
+      <pose>-3.37 2.43 0.065 0.26 0.21 2.97</pose>
+      <link name="link">
+        <collision name="c"><geometry><box><size>0.210 0.162 0.162</size></box></geometry>
+          <surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface></collision>
+        <visual name="v"><geometry><box><size>0.210 0.162 0.162</size></box></geometry>
+          <material><ambient>0.4 0.36 0.33 1</ambient><diffuse>0.4 0.36 0.33 1</diffuse></material></visual>
+      </link>
+    </model>
+    <model name="rock_9">
+      <static>true</static>
+      <pose>-2.98 -2.02 0.073 0.28 0.24 1.71</pose>
+      <link name="link">
+        <collision name="c"><geometry><box><size>0.238 0.183 0.183</size></box></geometry>
+          <surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface></collision>
+        <visual name="v"><geometry><box><size>0.238 0.183 0.183</size></box></geometry>
+          <material><ambient>0.4 0.36 0.33 1</ambient><diffuse>0.4 0.36 0.33 1</diffuse></material></visual>
+      </link>
+    </model>
+    <model name="rock_10">
+      <static>true</static>
+      <pose>-2.79 -1.73 0.072 0.04 -0.13 0.19</pose>
+      <link name="link">
+        <collision name="c"><geometry><box><size>0.234 0.180 0.180</size></box></geometry>
+          <surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface></collision>
+        <visual name="v"><geometry><box><size>0.234 0.180 0.180</size></box></geometry>
+          <material><ambient>0.4 0.36 0.33 1</ambient><diffuse>0.4 0.36 0.33 1</diffuse></material></visual>
+      </link>
+    </model>
+    <model name="rock_11">
+      <static>true</static>
+      <pose>-2.16 2.94 0.036 0.18 -0.05 0.45</pose>
+      <link name="link">
+        <collision name="c"><geometry><box><size>0.118 0.091 0.091</size></box></geometry>
+          <surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface></collision>
+        <visual name="v"><geometry><box><size>0.118 0.091 0.091</size></box></geometry>
+          <material><ambient>0.4 0.36 0.33 1</ambient><diffuse>0.4 0.36 0.33 1</diffuse></material></visual>
+      </link>
+    </model>
+  </world>
+</sdf>

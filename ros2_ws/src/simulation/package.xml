@@ -2,14 +2,19 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>simulation</name>
-  <version>0.0.0</version>
-  <description>TODO: Package description</description>
-  <maintainer email="willenderroberts@gmail.com">William Ender</maintainer>
+  <version>0.1.0</version>
+  <description>Gazebo Harmonic simulation of the rover: worlds, launch files, the ROS bridge and the rocker-differential plugin</description>
+  <maintainer email="211030878+bigfum@users.noreply.github.com">bigfum</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <depend>rclcpp</depend>
+  <exec_depend>rover_description</exec_depend>
+  <exec_depend>ros_gz_sim</exec_depend>
+  <exec_depend>ros_gz_bridge</exec_depend>
+  <exec_depend>robot_state_publisher</exec_depend>
+  <exec_depend>xacro</exec_depend>
+  <exec_depend>rviz2</exec_depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
