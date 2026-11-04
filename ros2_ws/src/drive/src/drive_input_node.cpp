@@ -162,8 +162,10 @@ private:
                         left_stick_y_ = -normalized;  // Negative because up is negative
                     }
                     // Left stick X-axis (left/right rotation)
+                    // Stick right is positive, but ROS angular.z is positive
+                    // for a LEFT turn, so flip it (pushing left turns left).
                     else if (event.number == 0) {
-                        left_stick_x_ = normalized;
+                        left_stick_x_ = -normalized;
                     }
                 }
                 // Handle button presses

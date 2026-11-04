@@ -28,7 +28,11 @@ This guide covers the setup and configuration of the drive system for both Jetso
 
 ### PWM Interface
 - **Protocol**: Linux sysfs PWM (`/sys/class/pwm/`)
-- **Frequency**: 50 kHz (configurable in drive_config.yaml)
+- **Signal**: RC-servo pulses at 50 Hz (20 ms frame): 1500 탎 = stop, 1050 탎 = full reverse,
+  1950 탎 = full forward. Configurable in drive_config.yaml (`frequency`, `drive.pulse_us`).
+- **Arming**: the controllers need ~1 s of 1500 탎 pulses after power-up; the node holds neutral
+  for `drive.command.arm_time` seconds before it accepts commands.
+- **Direction**: if one side drives backwards, set `invert: true` on its channels instead of rewiring.
 - **Voltage**: 3.3V logic (compatible with Jetson output)
 
 ## PWM Pin Configuration

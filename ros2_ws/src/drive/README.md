@@ -8,7 +8,8 @@ Basic drive control system for the CUB-URC rover using Jetson PWM outputs.
 - **Secondary**: NVIDIA Jetson Nano Dev Kit
 - **Motor Controllers**: BILDA 2x40A Motor Controllers
 - **Motors**: 6x Saturn 5304 Series Planetary Gear Motors (3 per side)
-- **PWM Frequency**: 50 kHz
+- **PWM Signal**: 50 Hz servo pulses: 1500 µs = stop, 1050 µs = full reverse, 1950 µs = full forward
+  (set in `drive.pulse_us`; the node holds neutral for `arm_time` seconds at startup so the controllers arm)
 
 ## Configuration
 

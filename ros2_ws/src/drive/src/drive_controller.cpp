@@ -3,6 +3,7 @@
 #include <geometry_msgs/msg/twist.hpp>
 #include <ament_index_cpp/get_package_share_directory.hpp>
 #include <yaml-cpp/yaml.h>
+#include <algorithm>
 #include <fstream>
 #include <iostream>
 #include <chrono>
@@ -10,16 +11,25 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <sys/stat.h>
+#include <thread>
 #include <vector>
 
 /**
  * @file drive_controller.cpp
  * @brief Drive controller node for CUB-URC rover
- * 
+ *
  * Hardware Compatibility:
  * - Jetson Orin Nano Super Dev Kit (primary)
  * - Jetson Nano Dev Kit (secondary)
- * 
+ *
+ * Motor controller signal (goBILDA 2x40A):
+ * The controllers take RC-servo style pulses, not a variable duty cycle:
+ * - 50 Hz frame (20 ms period)
+ * - 1500 us = stop (neutral), 1050 us = full reverse, 1950 us = full forward
+ * - They need ~1 s of neutral pulses after power-up before they will drive (arming)
+ * All of these are set in drive_config.yaml (drive.pulse_us, drive.command.arm_time).
+ *
  * PWM Hardware Note:
  * PWM interface uses Linux sysfs (/sys/class/pwm/). The exact PWM chip and channel
  * numbering depends on the Jetson device. If PWM initialization fails:
@@ -33,6 +43,11 @@ class DriveController : public rclcpp::Node
 public:
     DriveController() : Node("drive_controller")
     {
+        // Both times must come from this node's clock: subtracting an
+        // rclcpp::Time with a different clock type throws and kills the node.
+        last_command_time_ = this->now();
+        start_time_ = this->now();
+
         // Load configuration
         if (!load_config()) {
             RCLCPP_ERROR(this->get_logger(), "Failed to load drive configuration");
@@ -40,7 +55,7 @@ public:
             return;
         }
 
-        // Initialize PWM interfaces
+        // Initialize PWM interfaces (outputs start at neutral = stopped)
         if (!init_pwm()) {
             RCLCPP_ERROR(this->get_logger(), "Failed to initialize PWM");
             rclcpp::shutdown();
@@ -59,17 +74,19 @@ public:
             std::chrono::milliseconds(20),  // 50 Hz
             std::bind(&DriveController::control_loop, this));
 
-        RCLCPP_INFO(this->get_logger(), "Drive controller initialized. Subscribing to /drive/cmd_vel");
+        RCLCPP_INFO(this->get_logger(),
+            "Drive controller initialized. Subscribing to /drive/cmd_vel. "
+            "Pulses %d/%d/%d us (rev/stop/fwd), arming for %.1f s",
+            pulse_min_us_, pulse_neutral_us_, pulse_max_us_, arm_time_);
     }
 
     ~DriveController()
     {
-        // Stop all motors
-        set_pwm("motor_left_front_middle", 0.0);
-        set_pwm("motor_left_back", 0.0);
-        set_pwm("motor_right_front_middle", 0.0);
-        set_pwm("motor_right_back", 0.0);
-        
+        // Stop all motors: send neutral (stop) pulses, then disable the outputs
+        for (const auto &entry : pwm_channels_) {
+            set_pulse_us(entry.first, pulse_neutral_us_);
+        }
+
         // Cleanup PWM
         cleanup_pwm();
     }
@@ -80,6 +97,7 @@ private:
         int chip;
         int channel;
         int frequency;
+        bool invert;
         std::string path;
     };
 
@@ -92,15 +110,21 @@ private:
 
     // Configuration
     std::map<std::string, PWMChannel> pwm_channels_;
-    std::map<std::string, PWMChannel> motor_config_;
     float max_speed_;
     float acceleration_;
     float deadzone_;
     float front_middle_gain_;
     float back_gain_;
+    float cmd_timeout_{1.0f};
+    float arm_time_{1.0f};
+    int pulse_min_us_{1050};
+    int pulse_neutral_us_{1500};
+    int pulse_max_us_{1950};
     MotorCommand current_command_{0.0f, 0.0f, 0.0f, 0.0f};
     MotorCommand target_command_{0.0f, 0.0f, 0.0f, 0.0f};
     rclcpp::Time last_command_time_;
+    rclcpp::Time start_time_;
+    bool armed_logged_{false};
 
     // Subscriptions
     rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_subscription_;
@@ -123,21 +147,43 @@ private:
             for (auto it = pwm_cfg.begin(); it != pwm_cfg.end(); ++it) {
                 std::string key = it->first.as<std::string>();
                 PWMChannel channel;
-                channel.name = it->second["name"].as<std::string>();
+                channel.name = it->second["name"].as<std::string>(key);
                 channel.chip = it->second["chip"].as<int>();
                 channel.channel = it->second["channel"].as<int>();
-                channel.frequency = it->second["frequency"].as<int>();
+                channel.frequency = it->second["frequency"].as<int>(50);
+                channel.invert = it->second["invert"].as<bool>(false);
                 channel.path = "/sys/class/pwm/pwmchip" + std::to_string(channel.chip) +
                                "/pwm" + std::to_string(channel.channel);
+                if (channel.frequency <= 0 || channel.frequency > 400) {
+                    RCLCPP_ERROR(this->get_logger(),
+                        "Channel %s: frequency %d Hz is not a servo rate (use 50)",
+                        key.c_str(), channel.frequency);
+                    return false;
+                }
                 pwm_channels_[key] = channel;
             }
 
             // Load command parameters
-            max_speed_ = config["drive"]["command"]["max_speed"].as<float>(1.0f);
-            acceleration_ = config["drive"]["command"]["acceleration"].as<float>(0.1f);
-            deadzone_ = config["drive"]["command"]["deadzone"].as<float>(0.05f);
-            front_middle_gain_ = config["drive"]["command"]["front_middle_gain"].as<float>(1.0f);
-            back_gain_ = config["drive"]["command"]["back_gain"].as<float>(1.0f);
+            auto cmd = config["drive"]["command"];
+            max_speed_ = cmd["max_speed"].as<float>(1.0f);
+            acceleration_ = cmd["acceleration"].as<float>(0.1f);
+            deadzone_ = cmd["deadzone"].as<float>(0.05f);
+            front_middle_gain_ = cmd["front_middle_gain"].as<float>(1.0f);
+            back_gain_ = cmd["back_gain"].as<float>(1.0f);
+            cmd_timeout_ = cmd["timeout"].as<float>(1.0f);
+            arm_time_ = cmd["arm_time"].as<float>(1.0f);
+
+            // Servo pulse widths for the motor controllers
+            auto pulse = config["drive"]["pulse_us"];
+            pulse_min_us_ = pulse["min"].as<int>(1050);
+            pulse_neutral_us_ = pulse["neutral"].as<int>(1500);
+            pulse_max_us_ = pulse["max"].as<int>(1950);
+            if (!(pulse_min_us_ < pulse_neutral_us_ && pulse_neutral_us_ < pulse_max_us_)) {
+                RCLCPP_ERROR(this->get_logger(),
+                    "pulse_us must satisfy min < neutral < max (got %d/%d/%d)",
+                    pulse_min_us_, pulse_neutral_us_, pulse_max_us_);
+                return false;
+            }
 
             RCLCPP_INFO(this->get_logger(), "Configuration loaded successfully");
             return true;
@@ -147,49 +193,65 @@ private:
         }
     }
 
+    static bool write_sysfs(const std::string &path, long value)
+    {
+        std::ofstream f(path);
+        if (!f.is_open()) {
+            return false;
+        }
+        f << value;
+        f.close();
+        return !f.fail();
+    }
+
+    static bool path_exists(const std::string &path)
+    {
+        struct stat st;
+        return stat(path.c_str(), &st) == 0;
+    }
+
+    static long period_ns(const PWMChannel &channel)
+    {
+        return 1000000000L / channel.frequency;
+    }
+
     bool init_pwm()
     {
         try {
             for (auto &[key, channel] : pwm_channels_) {
                 // Export PWM channel if not already exported
-                std::string export_path = "/sys/class/pwm/pwmchip" + std::to_string(channel.chip) + "/export";
-                std::ofstream export_file(export_path);
-                if (export_file.is_open()) {
-                    export_file << channel.channel;
-                    export_file.close();
-                } else {
-                    RCLCPP_WARN(this->get_logger(), 
-                        "Could not export PWM channel %s. Path may not exist: %s", 
-                        key.c_str(), export_path.c_str());
+                if (!path_exists(channel.path)) {
+                    std::string export_path = "/sys/class/pwm/pwmchip" + std::to_string(channel.chip) + "/export";
+                    if (!write_sysfs(export_path, channel.channel)) {
+                        RCLCPP_WARN(this->get_logger(),
+                            "Could not export PWM channel %s. Path may not exist: %s",
+                            key.c_str(), export_path.c_str());
+                    }
+                    // The kernel creates pwmN/ asynchronously; give it a moment
+                    for (int i = 0; i < 20 && !path_exists(channel.path); ++i) {
+                        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                    }
                 }
 
-                // Set frequency (period in nanoseconds)
-                long period_ns = 1000000000 / channel.frequency;
-                std::string period_path = channel.path + "/period";
-                std::ofstream period_file(period_path);
-                if (period_file.is_open()) {
-                    period_file << period_ns;
-                    period_file.close();
-                } else {
-                    RCLCPP_WARN(this->get_logger(), 
-                        "Could not set PWM period for %s. Check if PWM chip exists: %s", 
-                        key.c_str(), period_path.c_str());
+                // Order matters: the period must be set before a duty cycle that fits
+                // inside it, and the output should already be neutral when enabled.
+                if (!write_sysfs(channel.path + "/period", period_ns(channel))) {
+                    RCLCPP_WARN(this->get_logger(),
+                        "Could not set PWM period for %s. Check if PWM chip exists: %s",
+                        key.c_str(), (channel.path + "/period").c_str());
                 }
 
-                // Enable PWM
-                std::string enable_path = channel.path + "/enable";
-                std::ofstream enable_file(enable_path);
-                if (enable_file.is_open()) {
-                    enable_file << "1";
-                    enable_file.close();
-                } else {
-                    RCLCPP_WARN(this->get_logger(), 
-                        "Could not enable PWM for %s: %s", 
-                        key.c_str(), enable_path.c_str());
+                set_pulse_us(key, pulse_neutral_us_);
+
+                if (!write_sysfs(channel.path + "/enable", 1)) {
+                    RCLCPP_WARN(this->get_logger(),
+                        "Could not enable PWM for %s: %s",
+                        key.c_str(), (channel.path + "/enable").c_str());
                 }
 
-                RCLCPP_INFO(this->get_logger(), "Initialized PWM channel: %s (chip %d, ch %d)", 
-                    key.c_str(), channel.chip, channel.channel);
+                RCLCPP_INFO(this->get_logger(), "Initialized PWM channel: %s (chip %d, ch %d, %d Hz%s)",
+                    key.c_str(), channel.chip, channel.channel, channel.frequency,
+                    channel.invert ? ", inverted" : "");
             }
             return true;
         } catch (const std::exception &e) {
@@ -202,53 +264,34 @@ private:
     {
         for (auto &[key, channel] : pwm_channels_) {
             try {
-                // Disable PWM
-                std::string enable_path = channel.path + "/enable";
-                std::ofstream enable_file(enable_path);
-                if (enable_file.is_open()) {
-                    enable_file << "0";
-                    enable_file.close();
-                }
+                // Disable PWM (no pulses -> the motor controller stops)
+                write_sysfs(channel.path + "/enable", 0);
 
                 // Unexport PWM channel
-                std::string unexport_path = "/sys/class/pwm/pwmchip" + std::to_string(channel.chip) + "/unexport";
-                std::ofstream unexport_file(unexport_path);
-                if (unexport_file.is_open()) {
-                    unexport_file << channel.channel;
-                    unexport_file.close();
-                }
+                write_sysfs("/sys/class/pwm/pwmchip" + std::to_string(channel.chip) + "/unexport",
+                            channel.channel);
             } catch (const std::exception &e) {
                 RCLCPP_WARN(this->get_logger(), "Cleanup error for %s: %s", key.c_str(), e.what());
             }
         }
     }
 
-    void set_pwm(const std::string &channel_name, float duty_cycle)
+    // Write one servo pulse width (microseconds) to a channel.
+    void set_pulse_us(const std::string &channel_name, int pulse_us)
     {
-        try {
-            if (pwm_channels_.find(channel_name) == pwm_channels_.end()) {
-                RCLCPP_WARN(this->get_logger(), "PWM channel not found: %s", channel_name.c_str());
-                return;
-            }
+        auto it = pwm_channels_.find(channel_name);
+        if (it == pwm_channels_.end()) {
+            RCLCPP_WARN(this->get_logger(), "PWM channel not found: %s", channel_name.c_str());
+            return;
+        }
+        const PWMChannel &channel = it->second;
 
-            const PWMChannel &channel = pwm_channels_[channel_name];
-            
-            // Clamp duty cycle between 0 and 1
-            duty_cycle = std::max(0.0f, std::min(1.0f, duty_cycle));
+        pulse_us = std::max(pulse_min_us_, std::min(pulse_max_us_, pulse_us));
+        long duty_ns = std::min(static_cast<long>(pulse_us) * 1000L, period_ns(channel));
 
-            // Calculate pulse width in nanoseconds
-            long period_ns = 1000000000 / channel.frequency;
-            long duty_ns = static_cast<long>(period_ns * duty_cycle);
-
-            // Write duty cycle
-            std::string duty_path = channel.path + "/duty_cycle";
-            std::ofstream duty_file(duty_path);
-            if (duty_file.is_open()) {
-                duty_file << duty_ns;
-                duty_file.close();
-            }
-        } catch (const std::exception &e) {
-            RCLCPP_ERROR(this->get_logger(), "PWM set error for %s: %s", channel_name.c_str(), e.what());
+        if (!write_sysfs(channel.path + "/duty_cycle", duty_ns)) {
+            RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000,
+                "Could not write duty_cycle for %s", channel_name.c_str());
         }
     }
 
@@ -256,13 +299,17 @@ private:
     {
         // Extract linear (forward/backward) velocity
         float linear_velocity = msg->linear.x;   // Forward/backward
-        float angular_velocity = msg->angular.z; // Rotation
+        float angular_velocity = msg->angular.z; // Rotation (+ = turn left, ROS convention)
+
+        // Reject NaN/inf so a bad message can never cause motion
+        if (!std::isfinite(linear_velocity)) linear_velocity = 0.0f;
+        if (!std::isfinite(angular_velocity)) angular_velocity = 0.0f;
 
         // Differential drive kinematics for 4 independent channels:
         // Left side motors (front/middle + back) get the same base speed
         // Right side motors (front/middle + back) get the same base speed
         // Angular velocity adjusts left vs right speeds for turning
-        
+
         float left_base_speed = linear_velocity - angular_velocity;
         float right_base_speed = linear_velocity + angular_velocity;
 
@@ -273,6 +320,10 @@ private:
             right_base_speed /= max_val;
         }
 
+        // Overall speed cap from config
+        left_base_speed *= max_speed_;
+        right_base_speed *= max_speed_;
+
         // Apply gains for front/middle vs back motors (can have different speeds)
         target_command_.left_front_middle = left_base_speed * front_middle_gain_;
         target_command_.left_back = left_base_speed * back_gain_;
@@ -282,79 +333,73 @@ private:
         last_command_time_ = this->now();
     }
 
+    static void ramp(float &current, float target, float step)
+    {
+        float delta = target - current;
+        if (std::abs(delta) > step) {
+            current += (delta > 0 ? step : -step);
+        } else {
+            current = target;
+        }
+    }
+
     void control_loop()
     {
+        const rclcpp::Time now = this->now();
+
+        // Arming: hold neutral for arm_time after start so the controllers arm
+        if ((now - start_time_).seconds() < arm_time_) {
+            target_command_ = {0.0f, 0.0f, 0.0f, 0.0f};
+            current_command_ = {0.0f, 0.0f, 0.0f, 0.0f};
+        } else if (!armed_logged_) {
+            RCLCPP_INFO(this->get_logger(), "Motor controllers armed; accepting commands");
+            armed_logged_ = true;
+        }
+
         // Check for command timeout
-        auto time_since_cmd = (this->now() - last_command_time_).seconds();
-        if (time_since_cmd > 1.0) {
+        if ((now - last_command_time_).seconds() > cmd_timeout_) {
             target_command_ = {0.0f, 0.0f, 0.0f, 0.0f};
         }
 
         // Apply acceleration limits to all four channels
-        float left_fm_delta = target_command_.left_front_middle - current_command_.left_front_middle;
-        float left_back_delta = target_command_.left_back - current_command_.left_back;
-        float right_fm_delta = target_command_.right_front_middle - current_command_.right_front_middle;
-        float right_back_delta = target_command_.right_back - current_command_.right_back;
+        ramp(current_command_.left_front_middle, target_command_.left_front_middle, acceleration_);
+        ramp(current_command_.left_back, target_command_.left_back, acceleration_);
+        ramp(current_command_.right_front_middle, target_command_.right_front_middle, acceleration_);
+        ramp(current_command_.right_back, target_command_.right_back, acceleration_);
 
-        if (std::abs(left_fm_delta) > acceleration_) {
-            current_command_.left_front_middle += (left_fm_delta > 0 ? acceleration_ : -acceleration_);
-        } else {
-            current_command_.left_front_middle = target_command_.left_front_middle;
-        }
-
-        if (std::abs(left_back_delta) > acceleration_) {
-            current_command_.left_back += (left_back_delta > 0 ? acceleration_ : -acceleration_);
-        } else {
-            current_command_.left_back = target_command_.left_back;
-        }
-
-        if (std::abs(right_fm_delta) > acceleration_) {
-            current_command_.right_front_middle += (right_fm_delta > 0 ? acceleration_ : -acceleration_);
-        } else {
-            current_command_.right_front_middle = target_command_.right_front_middle;
-        }
-
-        if (std::abs(right_back_delta) > acceleration_) {
-            current_command_.right_back += (right_back_delta > 0 ? acceleration_ : -acceleration_);
-        } else {
-            current_command_.right_back = target_command_.right_back;
-        }
-
-        // Apply deadzone to all channels
-        if (std::abs(current_command_.left_front_middle) < deadzone_) {
-            current_command_.left_front_middle = 0.0f;
-        }
-        if (std::abs(current_command_.left_back) < deadzone_) {
-            current_command_.left_back = 0.0f;
-        }
-        if (std::abs(current_command_.right_front_middle) < deadzone_) {
-            current_command_.right_front_middle = 0.0f;
-        }
-        if (std::abs(current_command_.right_back) < deadzone_) {
-            current_command_.right_back = 0.0f;
-        }
+        // Apply deadzone (to the output only, so ramping is not affected)
+        auto dz = [this](float v) { return std::abs(v) < deadzone_ ? 0.0f : v; };
 
         // Set all PWM channels
-        set_pwm_speed("motor_left_front_middle", current_command_.left_front_middle);
-        set_pwm_speed("motor_left_back", current_command_.left_back);
-        set_pwm_speed("motor_right_front_middle", current_command_.right_front_middle);
-        set_pwm_speed("motor_right_back", current_command_.right_back);
+        set_pwm_speed("motor_left_front_middle", dz(current_command_.left_front_middle));
+        set_pwm_speed("motor_left_back", dz(current_command_.left_back));
+        set_pwm_speed("motor_right_front_middle", dz(current_command_.right_front_middle));
+        set_pwm_speed("motor_right_back", dz(current_command_.right_back));
     }
 
+    // Signed speed (-1 reverse .. 0 stop .. +1 forward) -> servo pulse.
     void set_pwm_speed(const std::string &channel_name, float speed)
     {
+        auto it = pwm_channels_.find(channel_name);
+        if (it == pwm_channels_.end()) {
+            RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000,
+                "PWM channel not found: %s", channel_name.c_str());
+            return;
+        }
+
         // Clamp speed to -1.0 to 1.0
         speed = std::max(-1.0f, std::min(1.0f, speed));
+        if (it->second.invert) {
+            speed = -speed;   // motor mounted/wired the other way round
+        }
 
-        // Convert signed speed to PWM duty cycle (always positive)
-        // For bipolar motors, use direction control if available
-        // For now, just use absolute value and let motor controller handle direction
-        float duty_cycle = std::abs(speed);
-        
-        set_pwm(channel_name, duty_cycle);
+        // Forward and reverse spans may differ if the pulse range is asymmetric
+        const float span = speed >= 0.0f
+            ? static_cast<float>(pulse_max_us_ - pulse_neutral_us_)
+            : static_cast<float>(pulse_neutral_us_ - pulse_min_us_);
+        const int pulse_us = pulse_neutral_us_ + static_cast<int>(std::lround(speed * span));
 
-        // TODO: Add direction control logic if using separate direction pins
-        // if (speed < 0.0f) { /* set direction pin to reverse */ }
+        set_pulse_us(channel_name, pulse_us);
     }
 };
 
@@ -362,7 +407,9 @@ int main(int argc, char *argv[])
 {
     rclcpp::init(argc, argv);
     auto node = std::make_shared<DriveController>();
-    rclcpp::spin(node);
+    if (rclcpp::ok()) {
+        rclcpp::spin(node);
+    }
     rclcpp::shutdown();
     return 0;
 }
