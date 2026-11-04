@@ -1,0 +1,73 @@
+{
+  "version": "2.0.0",
+  "options": {
+    "cwd": "${workspaceFolder}"
+  },
+  "tasks": [
+    {
+      "label": "Install (build C++ + bindings)",
+      "type": "shell",
+      "command": "${workspaceFolder}/.venv/bin/python",
+      "windows": {
+        "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe"
+      },
+      "args": [
+        "-m",
+        "pip",
+        "install",
+        "-e",
+        ".[test]"
+      ],
+      "group": "build",
+      "problemMatcher": [
+        "$msCompile",
+        "$gcc"
+      ]
+    },
+    {
+      "label": "Python tests",
+      "type": "shell",
+      "command": "${workspaceFolder}/.venv/bin/python",
+      "windows": {
+        "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe"
+      },
+      "args": [
+        "-m",
+        "pytest",
+        "-v",
+        "tests"
+      ],
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "C++ tests (CMake + ctest)",
+      "type": "shell",
+      "command": "${workspaceFolder}/.venv/bin/python",
+      "windows": {
+        "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe"
+      },
+      "args": [
+        "tools/run_cpp_tests.py"
+      ],
+      "group": "test",
+      "problemMatcher": [
+        "$msCompile",
+        "$gcc"
+      ]
+    },
+    {
+      "label": "All tests",
+      "dependsOn": [
+        "C++ tests (CMake + ctest)",
+        "Python tests"
+      ],
+      "dependsOrder": "sequence",
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  // Python tests show up in the Testing panel (beaker icon)
+  "python.testing.pytestEnabled": true,
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestArgs": ["tests"],
+
+  // CMake Tools: C++-only build for the C++ tests (Python module is built by pip)
+  "cmake.sourceDirectory": "${workspaceFolder}",
+  "cmake.buildDirectory": "${workspaceFolder}/build",
+  "cmake.configureSettings": { "ROVER_BUILD_PYTHON": "OFF" },
+  "cmake.configureOnOpen": true,
+
+  // IntelliSense reads include paths from CMake
+  "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+
+  "files.exclude": { "**/__pycache__": true, "**/.pytest_cache": true }
+}

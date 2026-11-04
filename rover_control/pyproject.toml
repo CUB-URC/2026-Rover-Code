@@ -1,0 +1,24 @@
+[build-system]
+requires = ["scikit-build-core>=0.8", "pybind11>=2.12"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "rover-control"
+version = "0.1.0"
+description = "CU Rover command link: C++17 core with Python bindings"
+requires-python = ">=3.9"
+dependencies = []
+
+[project.optional-dependencies]
+gamepad = ["pygame-ce>=2.5"]   # same "import pygame"; has Python 3.14 wheels (plain pygame does not)
+serial  = ["pyserial>=3.5"]
+test    = ["pytest>=7", "cmake>=3.18"]
+
+[project.scripts]
+rover-base = "rover.base_station:main"
+rover-node = "rover.rover_node:main"
+
+[tool.scikit-build]
+wheel.packages = ["python/rover"]
+cmake.build-type = "Release"
+cmake.define = { ROVER_BUILD_TESTS = "OFF" }

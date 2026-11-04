@@ -1,0 +1,36 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Virtual rover (rover-node)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "rover.rover_node",
+      "args": [],
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Base station (fake input, localhost)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "rover.base_station",
+      "args": ["--rover-ip", "127.0.0.1", "--fake"],
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Base station (gamepad, localhost)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "rover.base_station",
+      "args": ["--rover-ip", "127.0.0.1"],
+      "console": "integratedTerminal"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Rover + Base station (fake input)",
+      "configurations": ["Virtual rover (rover-node)", "Base station (fake input, localhost)"],
+      "stopAll": true
+    }
+  ]
+}
