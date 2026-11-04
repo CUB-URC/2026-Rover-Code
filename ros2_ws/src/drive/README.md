@@ -8,7 +8,7 @@ Basic drive control system for the CUB-URC rover using Jetson PWM outputs.
 - **Secondary**: NVIDIA Jetson Nano Dev Kit
 - **Motor Controllers**: BILDA 2x40A Motor Controllers
 - **Motors**: 6x Saturn 5304 Series Planetary Gear Motors (3 per side)
-- **PWM Frequency**: 50 kHz
+- **Signal**: RC-servo pulses at 50 Hz (1500 us = stopped, about 1100-1900 us = full reverse/forward)
 
 ## Configuration
 
@@ -191,14 +191,15 @@ The system uses Linux sysfs PWM interface (`/sys/class/pwm/`):
 1. Exports PWM channels
 2. Sets frequency based on configuration
 3. Enables PWM output
-4. Writes duty cycle values (0-1.0)
+4. Writes pulse widths (1500 us = stopped, see `min_pulse_us` / `center_us` / `max_pulse_us` in the config)
 5. Cleans up on shutdown
 
 ### Motor Control Logic
 
-- **Forward**: Positive speed → forward PWM on, reverse PWM off
-- **Backward**: Negative speed → forward PWM off, reverse PWM on
-- **Stop**: Speed 0 → both PWMs off
+- **Forward**: Positive speed → pulse longer than `center_us`
+- **Backward**: Negative speed → pulse shorter than `center_us`
+- **Stop**: Speed 0 (also command timeout and shutdown) → `center_us` (neutral pulse)
+- **Wrong direction on one side**: set `reversed: true` for that channel in the config
 - **Acceleration Limiting**: Smooth acceleration to prevent motor strain
 
 ## Troubleshooting
@@ -223,7 +224,7 @@ The system uses Linux sysfs PWM interface (`/sys/class/pwm/`):
 
 ### Motors not responding
 - Check BILDA motor controller power connections
-- Verify PWM frequency matches controller specifications (should be 50 kHz)
+- Verify the signal is 50 Hz with a 1.1-1.9 ms pulse (neutral 1.5 ms), per the BILDA controller manual
 - Check motor wiring to motor controller
 - Verify no PWM initialization errors in node logs
 

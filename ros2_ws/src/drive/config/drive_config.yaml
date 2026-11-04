@@ -24,28 +24,32 @@ drive:
     motor_left_front_middle:
       chip: 0           # PWM chip number
       channel: 0        # PWM channel
-      frequency: 50000  # 50 kHz
+      frequency: 50     # Hz, rc-servo timing (20 ms period)
+      reversed: false   # flip if this side spins the wrong way
       name: "Left Front/Middle Motors (LF + LM)"
       motor_count: 2
     
     motor_left_back:
       chip: 0
       channel: 1
-      frequency: 50000
+      frequency: 50
+      reversed: false
       name: "Left Back Motor (LB)"
       motor_count: 1
     
     motor_right_front_middle:
       chip: 1
       channel: 0
-      frequency: 50000
+      frequency: 50
+      reversed: false
       name: "Right Front/Middle Motors (RF + RM)"
       motor_count: 2
     
     motor_right_back:
       chip: 1
       channel: 1
-      frequency: 50000
+      frequency: 50
+      reversed: false
       name: "Right Back Motor (RB)"
       motor_count: 1
   
@@ -77,6 +81,13 @@ drive:
     acceleration: 0.1     # Speed change per update cycle
     deadzone: 0.05        # Joystick deadzone threshold
     timeout: 1.0          # Command timeout in seconds
+
+    # The BILDA 2x40A controllers take rc-servo pulses, not duty cycle:
+    # 1500 us = stopped, shorter = reverse, longer = forward.
+    # Confirm the range in the controller manual.
+    min_pulse_us: 1100    # full reverse
+    center_us: 1500       # stopped
+    max_pulse_us: 1900    # full forward
     
     # Motor speed distribution when using differential drive
     # Allows independent control of front/middle vs back motor speeds

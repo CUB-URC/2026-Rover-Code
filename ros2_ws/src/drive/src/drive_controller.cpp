@@ -9,7 +9,9 @@
 #include <cmath>
 #include <map>
 #include <memory>
+#include <stdexcept>
 #include <string>
+#include <thread>
 #include <vector>
 
 /**
@@ -20,6 +22,10 @@
  * - Jetson Orin Nano Super Dev Kit (primary)
  * - Jetson Nano Dev Kit (secondary)
  * 
+ * Motor controllers:
+ * The BILDA 2x40A controllers read rc-servo pulses (about 50 Hz): 1500 us is stopped,
+ * shorter is reverse, longer is forward. Pulse widths are set in drive_config.yaml.
+ *
  * PWM Hardware Note:
  * PWM interface uses Linux sysfs (/sys/class/pwm/). The exact PWM chip and channel
  * numbering depends on the Jetson device. If PWM initialization fails:
@@ -64,12 +70,10 @@ public:
 
     ~DriveController()
     {
-        // Stop all motors
-        set_pwm("motor_left_front_middle", 0.0);
-        set_pwm("motor_left_back", 0.0);
-        set_pwm("motor_right_front_middle", 0.0);
-        set_pwm("motor_right_back", 0.0);
-        
+        // Stop all motors (neutral pulse), and give the controllers a few frames to see it
+        set_all_neutral();
+        std::this_thread::sleep_for(std::chrono::milliseconds(60));
+
         // Cleanup PWM
         cleanup_pwm();
     }
@@ -80,6 +84,7 @@ private:
         int chip;
         int channel;
         int frequency;
+        bool reversed = false;
         std::string path;
     };
 
@@ -98,6 +103,9 @@ private:
     float deadzone_;
     float front_middle_gain_;
     float back_gain_;
+    float min_pulse_us_;
+    float center_us_;
+    float max_pulse_us_;
     MotorCommand current_command_{0.0f, 0.0f, 0.0f, 0.0f};
     MotorCommand target_command_{0.0f, 0.0f, 0.0f, 0.0f};
     rclcpp::Time last_command_time_;
@@ -127,6 +135,10 @@ private:
                 channel.chip = it->second["chip"].as<int>();
                 channel.channel = it->second["channel"].as<int>();
                 channel.frequency = it->second["frequency"].as<int>();
+                if (channel.frequency <= 0) {
+                    throw std::runtime_error("pwm frequency must be > 0 for " + key);
+                }
+                channel.reversed = it->second["reversed"].as<bool>(false);
                 channel.path = "/sys/class/pwm/pwmchip" + std::to_string(channel.chip) +
                                "/pwm" + std::to_string(channel.channel);
                 pwm_channels_[key] = channel;
@@ -138,6 +150,20 @@ private:
             deadzone_ = config["drive"]["command"]["deadzone"].as<float>(0.05f);
             front_middle_gain_ = config["drive"]["command"]["front_middle_gain"].as<float>(1.0f);
             back_gain_ = config["drive"]["command"]["back_gain"].as<float>(1.0f);
+            min_pulse_us_ = config["drive"]["command"]["min_pulse_us"].as<float>(1100.0f);
+            center_us_ = config["drive"]["command"]["center_us"].as<float>(1500.0f);
+            max_pulse_us_ = config["drive"]["command"]["max_pulse_us"].as<float>(1900.0f);
+
+            if (!(min_pulse_us_ < center_us_ && center_us_ < max_pulse_us_)) {
+                throw std::runtime_error("need min_pulse_us < center_us < max_pulse_us");
+            }
+            for (const auto &entry : pwm_channels_) {
+                const float period_us = 1e6f / entry.second.frequency;
+                if (max_pulse_us_ >= period_us) {
+                    throw std::runtime_error("max_pulse_us does not fit in the pwm period for " +
+                                             entry.first + " (frequency should be about 50 Hz)");
+                }
+            }
 
             RCLCPP_INFO(this->get_logger(), "Configuration loaded successfully");
             return true;
@@ -175,6 +201,9 @@ private:
                         "Could not set PWM period for %s. Check if PWM chip exists: %s", 
                         key.c_str(), period_path.c_str());
                 }
+
+                // Start at neutral so the controller arms stopped
+                set_pwm_pulse_us(key, center_us_);
 
                 // Enable PWM
                 std::string enable_path = channel.path + "/enable";
@@ -223,33 +252,41 @@ private:
         }
     }
 
-    void set_pwm(const std::string &channel_name, float duty_cycle)
+    void set_pwm_pulse_us(const std::string &channel_name, double pulse_us)
     {
-        try {
-            if (pwm_channels_.find(channel_name) == pwm_channels_.end()) {
-                RCLCPP_WARN(this->get_logger(), "PWM channel not found: %s", channel_name.c_str());
-                return;
-            }
-
-            const PWMChannel &channel = pwm_channels_[channel_name];
-            
-            // Clamp duty cycle between 0 and 1
-            duty_cycle = std::max(0.0f, std::min(1.0f, duty_cycle));
-
-            // Calculate pulse width in nanoseconds
-            long period_ns = 1000000000 / channel.frequency;
-            long duty_ns = static_cast<long>(period_ns * duty_cycle);
-
-            // Write duty cycle
-            std::string duty_path = channel.path + "/duty_cycle";
-            std::ofstream duty_file(duty_path);
-            if (duty_file.is_open()) {
-                duty_file << duty_ns;
-                duty_file.close();
-            }
-        } catch (const std::exception &e) {
-            RCLCPP_ERROR(this->get_logger(), "PWM set error for %s: %s", channel_name.c_str(), e.what());
+        const auto it = pwm_channels_.find(channel_name);
+        if (it == pwm_channels_.end()) {
+            RCLCPP_WARN(this->get_logger(), "PWM channel not found: %s", channel_name.c_str());
+            return;
         }
+
+        const PWMChannel &channel = it->second;
+        const long period_ns = 1000000000L / channel.frequency;
+        long pulse_ns = std::lround(pulse_us * 1000.0);
+        pulse_ns = std::max(0L, std::min(period_ns, pulse_ns));
+
+        std::ofstream duty_file(channel.path + "/duty_cycle");
+        if (duty_file.is_open()) {
+            duty_file << pulse_ns;
+        }
+    }
+
+    void set_all_neutral()
+    {
+        for (const auto &entry : pwm_channels_) {
+            set_pwm_pulse_us(entry.first, center_us_);
+        }
+    }
+
+    // signed speed (-1 to 1) -> pulse width in us. zero is the center (stopped)
+    static double pulse_us_for_speed(float speed, float min_us, float center_us, float max_us)
+    {
+        if (!std::isfinite(speed)) {
+            speed = 0.0f;
+        }
+        speed = std::max(-1.0f, std::min(1.0f, speed));
+        const float span_us = speed >= 0.0f ? (max_us - center_us) : (center_us - min_us);
+        return center_us + speed * span_us;
     }
 
     void cmd_callback(const geometry_msgs::msg::Twist::SharedPtr msg)
@@ -343,18 +380,16 @@ private:
 
     void set_pwm_speed(const std::string &channel_name, float speed)
     {
-        // Clamp speed to -1.0 to 1.0
-        speed = std::max(-1.0f, std::min(1.0f, speed));
+        const auto it = pwm_channels_.find(channel_name);
+        if (it == pwm_channels_.end()) {
+            RCLCPP_WARN(this->get_logger(), "PWM channel not found: %s", channel_name.c_str());
+            return;
+        }
 
-        // Convert signed speed to PWM duty cycle (always positive)
-        // For bipolar motors, use direction control if available
-        // For now, just use absolute value and let motor controller handle direction
-        float duty_cycle = std::abs(speed);
-        
-        set_pwm(channel_name, duty_cycle);
-
-        // TODO: Add direction control logic if using separate direction pins
-        // if (speed < 0.0f) { /* set direction pin to reverse */ }
+        if (it->second.reversed) {
+            speed = -speed;
+        }
+        set_pwm_pulse_us(channel_name, pulse_us_for_speed(speed, min_pulse_us_, center_us_, max_pulse_us_));
     }
 };
 

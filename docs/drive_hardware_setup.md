@@ -28,7 +28,7 @@ This guide covers the setup and configuration of the drive system for both Jetso
 
 ### PWM Interface
 - **Protocol**: Linux sysfs PWM (`/sys/class/pwm/`)
-- **Frequency**: 50 kHz (configurable in drive_config.yaml)
+- **Signal**: RC-servo pulses at 50 Hz (1500 us = stopped, about 1100-1900 us = reverse/forward), all configurable in drive_config.yaml
 - **Voltage**: 3.3V logic (compatible with Jetson output)
 
 ## PWM Pin Configuration
@@ -272,7 +272,7 @@ ros2 run drive drive_test_node
 
 **Check List**:
 1. Verify power connections to BILDA controller
-2. Test PWM output with oscilloscope (should see 50 kHz square wave)
+2. Test PWM output with oscilloscope (should see a 50 Hz signal with a 1.5 ms pulse at neutral)
 3. Verify motor controller jumpers/switches are configured correctly
 4. Check motor wiring to controller terminals
 5. Test controllers manually with direct PWM signal
