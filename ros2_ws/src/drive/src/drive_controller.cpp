@@ -60,6 +60,10 @@ public:
             10,
             std::bind(&DriveController::cmd_callback, this, std::placeholders::_1));
 
+        // Start the timeout clock on the node's own clock. A default-constructed Time uses a
+        // different clock source, and subtracting it from now() throws
+        last_command_time_ = this->now();
+
         // Create timer for control loop
         control_timer_ = this->create_wall_timer(
             std::chrono::milliseconds(20),  // 50 Hz
