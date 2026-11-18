@@ -4,7 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "rover-control"
-version = "0.1.0"
+version = "0.1.1"
 description = "CU Rover command link: C++17 core with Python bindings"
 requires-python = ">=3.9"
 dependencies = []
@@ -17,6 +17,7 @@ test    = ["pytest>=7", "cmake>=3.18"]
 [project.scripts]
 rover-base = "rover.base_station:main"
 rover-node = "rover.rover_node:main"
+rover-sniff = "rover.sniff:main"
 
 [tool.scikit-build]
 wheel.packages = ["python/rover"]

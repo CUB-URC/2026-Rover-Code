@@ -167,3 +167,94 @@ def test_bridge_core_end_to_end():
     finally:
         client.close()
         core.close()
+
+
+def test_show_sent_describes_packets():
+    """rover-base --show-sent: decoded text for good packets, BAD for corrupt ones."""
+    from rover.base_station import describe_packet
+    good = encode(Packet(7, DriveCmd(0.5, -0.25)))
+    text = describe_packet(good)
+    assert "seq=7" in text and "linear=+0.50" in text and "angular=-0.25" in text and " OK " in text
+    assert "E-STOP  engage" in describe_packet(encode(Packet(8, EStopCmd(True))))
+    assert "Mode    Teleop" in describe_packet(encode(Packet(9, SetModeCmd(Mode.Teleop))))
+    bad = bytearray(good)
+    bad[-1] ^= 0xFF                                    # break the CRC
+    assert describe_packet(bytes(bad)).startswith("BAD PACKET")
+
+
+def test_connect_on_send_sees_every_packet():
+    sent = []
+    client = connect("127.0.0.1", rover_port=15205, listen_port=15206, on_send=sent.append)
+    try:
+        client.drive(0.3, 0.1)
+        client.estop()
+        assert len(sent) >= 2 and all(decode(b) is not None for b in sent)
+    finally:
+        client.close()
+
+
+class _FakeLink:
+    def __init__(self, incoming=b""):
+        self.sent, self.incoming = [], incoming
+
+    def send_bytes(self, data):
+        self.sent.append(data)
+
+    def recv_bytes(self):
+        data, self.incoming = self.incoming, b""
+        return data
+
+    def close(self):
+        pass
+
+
+def test_text_mode_sends_readable_lines():
+    """rover-base --text: plain ASCII lines a serial terminal can show, drive rate-limited."""
+    from rover.base_station import TextClient
+    eol = bytes([13, 10])
+    link = _FakeLink(b"hello from far" + eol + b"partial")
+    c = TextClient(link, drive_hz=5.0)
+    c.set_mode(Mode.Teleop)
+    c.drive(0.3, -0.08)
+    c.drive(0.9, 0.9)                       # within 0.2 s of the last one: not sent
+    c.estop()
+    c.release_estop()
+    assert link.sent == [b"MODE Teleop" + eol, b"DRIVE linear=+0.30 angular=-0.08" + eol,
+                         b"ESTOP ON" + eol, b"ESTOP OFF" + eol]
+    assert all(b.isascii() for b in link.sent)
+    assert c.poll() == 1 and c.rx == b"partial"      # complete lines printed, rest kept
+    assert not c.link_ok() and c.telemetry() is None and c.stats.packets_sent == 4
+
+
+# ---------------------------------------------------------------- rover-sniff
+def test_sniff_decodes_jackson_sticks_frames():
+    """Same frames comms_node.cpp accepts, split across reads, with junk around them."""
+    from rover.sniff import Sniffer, byte_to_float
+    sn = Sniffer(print_all=True)
+    stream = bytes([0x00, 0x12, 0xFF, 0x01, 254, 127, 0x0A, 0xFF, 0xFF, 0x01, 0, 200, 0x0A])
+    lines = sn.feed(stream[:4], now=0.0) + sn.feed(stream[4:], now=0.1)
+    assert sn.sticks.frames == 2
+    assert "var1=+1.00 var2=+0.00" in lines[0] and "(raw 254, 127)" in lines[0]
+    assert "var1=-1.00" in lines[1]
+    assert abs(byte_to_float(127) - 0.0) < 0.01
+    assert not any(l.startswith("[text]") for l in lines)
+
+
+def test_sniff_rejects_bad_sticks_frames_like_comms_node():
+    from rover.sniff import SticksParser
+    p = SticksParser()
+    assert p.push(bytes([0xFF, 0x00, 1, 2, 0x0A])) == []       # CONTROL type: not sticks
+    assert p.push(bytes([0xFF, 0x01, 1, 2, 0x0B])) == []       # wrong end byte
+    assert p.push(bytes([0xFF, 0x01, 10, 65, 0x0A])) == [(10, 65)]   # 0x0A as a value is fine
+
+
+def test_sniff_handles_rover_packets_and_text_together():
+    from rover.sniff import Sniffer
+    sn = Sniffer(print_all=True)
+    data = (encode(Packet(5, DriveCmd(0.5, -0.25))) + b"hello rover" + bytes([13, 10])
+            + bytes([0xFF, 0x01, 10, 65, 0x0A]))
+    lines = sn.feed(data, now=0.0)
+    assert any("[rover_control] seq=5 Drive linear=+0.50 angular=-0.25" in l for l in lines)
+    assert "[text] hello rover" in lines
+    assert sn.sticks.frames == 1
+    assert not any(l == "[text] A" for l in lines)     # split-frame tail is not text

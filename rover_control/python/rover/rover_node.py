@@ -15,7 +15,7 @@ import time
 
 from . import (DEFAULT_BASE_PORT, DEFAULT_ROVER_PORT, ControllerConfig, DriveOutput, Mode,
                RoverController)
-from .link import SerialLink, UdpLink
+from .link import UdpLink, open_serial_link
 
 CONTROL_HZ = 50
 TELEMETRY_HZ = 5
@@ -45,7 +45,7 @@ def main(argv=None):
     ctrl = RoverController(cfg)
 
     serial_radio = bool(args.radio_serial)
-    link = SerialLink(args.radio_serial, args.baud) if serial_radio else UdpLink(args.port)
+    link = open_serial_link(args.radio_serial, args.baud) if serial_radio else UdpLink(args.port)
     period = 1.0 / CONTROL_HZ
     last_tel = last_print = 0.0
     base_addr = None

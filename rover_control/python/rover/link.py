@@ -121,3 +121,36 @@ class SerialLink:
 
     def close(self) -> None:
         self.ser.close()
+
+
+def list_serial_ports() -> list:
+    """Names of the serial ports Windows/Linux can see right now, e.g. ['COM3', 'COM10']."""
+    try:
+        from serial.tools import list_ports
+        return sorted(p.device for p in list_ports.comports())
+    except Exception:
+        return []
+
+
+def open_serial_link(port: str, baud: int = 57600) -> "SerialLink":
+    """SerialLink(port, baud), but a port that will not open ends the program with a
+    plain-English reason instead of a Python traceback."""
+    try:
+        return SerialLink(port, baud)
+    except Exception as exc:
+        text = str(exc)
+        seen = ", ".join(list_serial_ports()) or "none"
+        if "denied" in text.lower() or "PermissionError" in text:
+            reason = (f"{port} is already open in another program. Close it there first "
+                      "(Arduino Serial Monitor, PuTTY, RFD Modem Tools, a VS Code serial monitor, "
+                      "or another rover-node / rover-base window). If nothing else has it, "
+                      "unplug the radio and plug it back in.")
+        elif "FileNotFound" in text or "cannot find" in text.lower() or "No such file" in text:
+            reason = (f"There is no {port} on this computer right now. Check the radio's USB "
+                      "cable is plugged in, then use the port shown below (or in Device "
+                      "Manager -> Ports).")
+        elif isinstance(exc, ImportError):
+            reason = "pyserial is not installed. Run: pip install pyserial"
+        else:
+            reason = f"Could not open {port}: {text}"
+        raise SystemExit("\nERROR: " + reason + "\nSerial ports this computer can see: " + seen)
